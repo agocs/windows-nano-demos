@@ -41,6 +41,18 @@ Getting real user logons to work on nanoserver took four workarounds:
 
 The sshd logs are in `C:\ProgramData\ssh\logs`.
 
+## Windows Server 2025 uses servercore
+
+On `nanoserver:ltsc2025` the steps above still get sshd running, but LSA rejects every logon for a local account. S4U fails, so key logon and group lookup fail, and password logon fails the same way:
+
+```text
+generate_s4u_user_token: LsaLogonUser() failed. User 'alice' Status: 0xC00000DF SubStatus 0.
+error: get_user_token - unable to generate token on 2nd attempt for user alice
+Windows authentication failed for user: alice domain: . error: 1355
+```
+
+`0xC00000DF` is `STATUS_NO_SUCH_DOMAIN` and 1355 is `ERROR_NO_SUCH_DOMAIN`. The computer name and the local SAM look fine, and copying the LSA-related DLLs that servercore has and nanoserver lacks didn't help. So for 2025, `build.cmd` and CI build the same Dockerfile with `BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2025-amd64`, where everything passes. That image is much bigger. The 2019 and 2022 images stay on nanoserver.
+
 ## Building
 
 To build a 2022 container:

@@ -23,6 +23,12 @@ jobs:
       fail-fast: false
       matrix:
         windows-version: ['2019', '2022', '2025']
+        include:
+          # On nanoserver ltsc2025, LSA rejects every local-account logon
+          # (LsaLogonUser S4U -> 0xC00000DF STATUS_NO_SUCH_DOMAIN, LogonUser ->
+          # error 1355), so 2025 uses servercore as the base. See the README.
+          - windows-version: '2025'
+            base-image: mcr.microsoft.com/windows/servercore:ltsc2025-amd64
     defaults:
       run:
         shell: pwsh
@@ -35,8 +41,12 @@ jobs:
       # build context is sent over the API (no bind mounts are used anywhere).
       - name: Build image
         working-directory: nano-server-ssh
+        env:
+          BASE_IMAGE: ${{ matrix.base-image }}
         run: |
-          docker build --build-arg WINDOWS_VERSION=${{ matrix.windows-version }} -t "$env:IMAGE" .
+          $buildArgs = @('--build-arg', 'WINDOWS_VERSION=${{ matrix.windows-version }}')
+          if ($env:BASE_IMAGE) { $buildArgs += @('--build-arg', "BASE_IMAGE=$env:BASE_IMAGE") }
+          docker build @buildArgs -t "$env:IMAGE" .
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
       # Starts the server and a second container of the same image as the

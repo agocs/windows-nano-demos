@@ -1,3 +1,6 @@
+# For ltsc2025, build with BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2025-amd64
+# (build.cmd and CI do). Nanoserver 2025 rejects every local-account logon:
+# LsaLogonUser S4U returns 0xC00000DF STATUS_NO_SUCH_DOMAIN, LogonUser error 1355.
 ARG WINDOWS_VERSION=2022
 ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64
 
@@ -23,13 +26,15 @@ RUN mkdir "%OPENSSH_DIR%" && \
     curl -fL -o OpenSSH-Win64.zip https://github.com/PowerShell/Win32-OpenSSH/releases/download/%OPENSSH_VERSION%/OpenSSH-Win64.zip && \
     tar -xf OpenSSH-Win64.zip -C "%ProgramFiles%" && \
     del OpenSSH-Win64.zip && \
-    mkdir "%ProgramData%\ssh"
+    if not exist "%ProgramData%\ssh" mkdir "%ProgramData%\ssh"
 
 # sshd must run as LocalSystem: it builds the logged-on user's token with S4U, and
 # when started directly as ContainerAdministrator every public-key logon fails with
 #   get_user_token - unable to generate user token for alice as i am not running as system
 # so register it as a service (same settings install-sshd.ps1 uses) and start it at run time.
-RUN sc create sshd binPath= "\"%OPENSSH_DIR%\sshd.exe\"" start= demand obj= LocalSystem DisplayName= "OpenSSH SSH Server" && \
+# A servercore BASE_IMAGE (2025) already has an inbox sshd service; replace it.
+RUN (sc query sshd >NUL 2>&1 && sc delete sshd >NUL || ver >NUL) && \
+    sc create sshd binPath= "\"%OPENSSH_DIR%\sshd.exe\"" start= demand obj= LocalSystem DisplayName= "OpenSSH SSH Server" && \
     sc sidtype sshd unrestricted && \
     sc privs sshd SeAssignPrimaryTokenPrivilege/SeTcbPrivilege/SeBackupPrivilege/SeRestorePrivilege/SeImpersonatePrivilege
 

@@ -1,4 +1,4 @@
-ARG WINDOWS_VERSION=2022
+ARG WINDOWS_VERSION=2025
 # Use the official Microsoft Windows Nano Server image. Override BASE_IMAGE to build on a different base.
 ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64
 FROM ${BASE_IMAGE}

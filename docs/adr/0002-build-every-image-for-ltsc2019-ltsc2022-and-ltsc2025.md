@@ -1,6 +1,6 @@
 # 0002. Build every image for ltsc2019, ltsc2022, and ltsc2025
 
-- Status: Accepted
+- Status: Accepted, amended by [0008](0008-images-take-windows-version-defaulting-to-2025-built-as-a-matrix.md) (default is now 2025)
 - Date: 2026-11-04
 - Deciders: Justin Dearing
 - Related: [`.github/workflows/gh-runner-container.yml`](../../.github/workflows/gh-runner-container.yml), [0005](0005-tagging-scheme-for-windows-images.md)
@@ -13,7 +13,7 @@ Windows containers are tied to the host's OS build. A process-isolated container
 
 We will build and test every image for all three versions:
 
-- Each `Dockerfile` takes `ARG WINDOWS_VERSION=2022` and `ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64`, then `FROM ${BASE_IMAGE}`.
+- Each `Dockerfile` takes `ARG WINDOWS_VERSION=2022` (2025 since [0008](0008-images-take-windows-version-defaulting-to-2025-built-as-a-matrix.md)) and `ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64`, then `FROM ${BASE_IMAGE}`.
 - Each image's workflow runs a matrix `windows-version: ['2019', '2022', '2025']` with `fail-fast: false`, so one version's failure doesn't hide the others' results.
 - Images are tagged by version (`:2019`, `:2022`, `:2025`). See [0005](0005-tagging-scheme-for-windows-images.md) for the full scheme.
 

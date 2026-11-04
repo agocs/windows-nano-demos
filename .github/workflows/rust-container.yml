@@ -1,4 +1,4 @@
----
+# Builds and tests windows-nano-rust for every Windows version through the shared workflow (ADR 0009)
 name: Rust container
 
 on:
@@ -7,46 +7,18 @@ on:
     paths:
       - 'nano-server-rust/**'
       - '.github/workflows/rust-container.yml'
+      - '.github/workflows/build-windows-image.yml'
   pull_request:
     branches: [main]
     paths:
       - 'nano-server-rust/**'
       - '.github/workflows/rust-container.yml'
+      - '.github/workflows/build-windows-image.yml'
   workflow_dispatch:
 
 jobs:
-  build-and-test:
-    # Only run for pushes, manual runs and PRs from this repo. PRs from forks would run untrusted code on the self-hosted runner.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, windows, docker]
-    # A stuck docker build would otherwise hold the shared runner for 6 hours.
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        windows-version: ['2019', '2022', '2025']
-    defaults:
-      run:
-        shell: pwsh
-    env:
-      IMAGE: windows-nano-rust:${{ matrix.windows-version }}-${{ github.sha }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build image (ltsc${{ matrix.windows-version }})
-        working-directory: nano-server-rust
-        run: |
-          docker build --memory 4g --build-arg WINDOWS_VERSION=${{ matrix.windows-version }} -t $env:IMAGE .
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Smoke test
-        # The runner is itself a container, so we don't bind-mount the workspace. Everything runs inside the image.
-        run: |
-          docker run --rm $env:IMAGE "rustc --version && cargo --version && git --version && cargo new hello && cd hello && cargo run"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Remove image
-        if: always()
-        run: |
-          docker rmi -f $env:IMAGE
-          exit 0
+  build:
+    uses: ./.github/workflows/build-windows-image.yml
+    with:
+      context: nano-server-rust
+      image: windows-nano-rust

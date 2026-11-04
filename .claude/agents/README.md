@@ -14,7 +14,7 @@ This folder holds the [Claude Code subagents](https://docs.claude.com/en/docs/cl
 | `container-author` | Writes and edits Dockerfiles and `build.cmd` for existing image folders. | sonnet | Read, Glob, Grep, Write, Edit, WebFetch |
 | `windows-demo-scaffolder` | Creates a whole new `nano-server-<stack>/` demo folder and wires it into the root README. | sonnet | Read, Write, Edit, Glob, Grep, Bash, WebFetch |
 | `powershell-author` | Writes PowerShell 7 scripts and modules with Pester tests, clean under PSScriptAnalyzer. | sonnet | Read, Glob, Grep, Write, Edit, PowerShell |
-| `python-author` | Writes Python 3 tools with type hints and pytest tests, clean under ruff. | sonnet | Read, Glob, Grep, Write, Edit, Bash |
+| `python-author` | Writes Python tools and the convention tests under `tests/` with uv (Python version from `UV_PYTHON`), PyYAML and pytest. | sonnet | Read, Glob, Grep, Write, Edit, Bash |
 | `windows-container-builder` | Builds and tags images for ltsc2019, ltsc2022, and ltsc2025. | sonnet | PowerShell, Read, Glob, Grep |
 | `windows-container-tester` | Smoke-tests built images by running their tools. | sonnet | PowerShell, Read, Glob, Grep |
 | `windows-deps-updater` | Finds and applies newer tool versions pinned in Dockerfiles. | sonnet | Read, Edit, Glob, Grep, Bash, WebFetch |

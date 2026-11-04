@@ -1,7 +1,7 @@
 # For ltsc2025, build with BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2025-amd64
 # (build.cmd and CI do). Nanoserver 2025 rejects every local-account logon:
 # LsaLogonUser S4U returns 0xC00000DF STATUS_NO_SUCH_DOMAIN, LogonUser error 1355.
-ARG WINDOWS_VERSION=2022
+ARG WINDOWS_VERSION=2025
 ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64
 
 # Helper stage. Nanoserver has no netapi32.dll, which sshd.exe, sshd-session.exe

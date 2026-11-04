@@ -9,7 +9,7 @@ Windows version must be compatible with the host (ltsc2022 works on Windows 11).
 param(
     [string]$Repo = 'zippy1981/windows-nano-demos',
     [string]$Name = "$env:COMPUTERNAME-nano",
-    [string]$Image = 'windows-nano-gh-runner:2022',
+    [string]$Image = 'windows-nano-gh-runner:2025',
     [string]$Labels = 'nanoserver,docker'
 )
 $ErrorActionPreference = 'Stop'

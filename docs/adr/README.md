@@ -11,3 +11,7 @@ These records explain why this repo is built the way it is. Each one covers a si
 | 0005 | [Tagging scheme for Windows images](0005-tagging-scheme-for-windows-images.md) | Proposed | 2026-11-04 |
 | 0006 | [Publish to Docker Hub only from main via scheduled workflow](0006-publish-to-docker-hub-only-from-main-via-scheduled-workflow.md) | Proposed | 2026-11-04 |
 | 0007 | [Separate tool-version bumps from base-image refreshes](0007-separate-tool-version-bumps-from-base-image-refreshes.md) | Proposed | 2026-11-04 |
+| 0008 | [Images take the Windows version as an argument, default to 2025, and build as a matrix](0008-images-take-windows-version-defaulting-to-2025-built-as-a-matrix.md) | Accepted | 2026-11-04 |
+| 0009 | [All image builds use one reusable workflow](0009-all-image-builds-use-one-reusable-workflow.md) | Accepted | 2026-11-04 |
+| 0010 | [Python tooling uses uv, with the Python version set by the `UV_PYTHON` environment variable](0010-python-tooling-uses-uv-with-the-python-version-from-uv-python.md) | Accepted | 2026-11-04 |
+| 0011 | [Repository conventions are enforced by tests in CI](0011-repository-conventions-are-enforced-by-tests-in-ci.md) | Accepted | 2026-11-04 |

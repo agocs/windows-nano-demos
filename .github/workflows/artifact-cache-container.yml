@@ -1,0 +1,28 @@
+# Builds and tests windows-nano-artifact-cache through the shared workflow (ADR 0009).
+# The cache runs only on nanoserver ltsc2025, so only 2025 is built (ADR 0012).
+name: Artifact cache container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nano-server-artifact-cache/**'
+      - '.github/workflows/artifact-cache-container.yml'
+      - '.github/workflows/build-windows-image.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nano-server-artifact-cache/**'
+      - '.github/workflows/artifact-cache-container.yml'
+      - '.github/workflows/build-windows-image.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-windows-image.yml
+    with:
+      context: nano-server-artifact-cache
+      image: windows-nano-artifact-cache
+      windows-versions: '["2025"]'
+      # Building Caddy with xcaddy downloads and compiles a few hundred modules
+      timeout-minutes: 90

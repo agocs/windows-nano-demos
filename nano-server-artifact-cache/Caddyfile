@@ -1,0 +1,191 @@
+# Caching HTTPS proxy for build artifacts (issue #24, ADR 0012).
+#
+# Build containers resolve each allowlisted host to this container (docker build --add-host)
+# and trust its internal root CA. Caddy terminates TLS with a certificate from that CA,
+# forwards the request to the real host over HTTPS (resolved with this container's own DNS),
+# and caches artifact downloads on disk through cache-handler and the simplefs storage.
+{
+	# Caddy's state, including the internal CA's private key, lives on a host-mounted folder
+	storage file_system C:/caddy-data
+	# The CA root is distributed by hand; never touch this container's own trust store
+	skip_install_trust
+	# Only HTTPS sites plus the plain-HTTP status site on :8080; no :80 redirect listener
+	auto_https disable_redirects
+
+	pki {
+		ca local {
+			name "windows-nano-demos artifact cache"
+		}
+	}
+
+	order cache before rewrite
+	cache {
+		cache_name ArtifactCache
+		# Pinned artifact URLs never change, so ignore upstream Cache-Control and keep them for 30 days
+		mode bypass
+		ttl 720h
+		# Keep expired entries a further 7 days, to serve when the upstream is failing
+		stale 168h
+		# Large downloads take far longer than Souin's 10 second default backend timeout
+		timeout {
+			backend 30m
+			cache 5s
+		}
+		key {
+			# A short, hashed file name per entry; the URL itself is in the access log
+			hash
+		}
+		simplefs {
+			configuration {
+				path C:/cache
+				directory_size 100GB
+			}
+		}
+	}
+}
+
+# Hosts whose artifacts are addressed by a stable URL: cache GETs of allowlisted file types.
+(artifact_host) {
+	tls internal
+	log {
+		output stdout
+		format json
+	}
+
+	@cacheable {
+		method GET
+		not header Authorization *
+		path_regexp artifact (?i)\.(zip|7z|tar|tgz|gz|xz|bz2|msi|exe|nupkg|whl|deb|rpm)$
+	}
+
+	handle @cacheable {
+		cache
+		reverse_proxy https://{args[0]} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
+	handle {
+		header X-Artifact-Cache BYPASS
+		reverse_proxy https://{args[0]} {
+			header_up Host {upstream_hostport}
+		}
+	}
+}
+
+# Blob hosts that GitHub redirects release downloads to. Their paths are opaque IDs with no
+# file extension, and the query string is a short-lived signature, so cache every GET
+# and leave the query out of the key.
+(blob_host) {
+	tls internal
+	log {
+		output stdout
+		format json
+	}
+
+	@cacheable {
+		method GET
+		not header Authorization *
+	}
+
+	handle @cacheable {
+		cache {
+			key {
+				disable_query
+				hash
+			}
+		}
+		reverse_proxy https://{args[0]} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
+	handle {
+		header X-Artifact-Cache BYPASS
+		reverse_proxy https://{args[0]} {
+			header_up Host {upstream_hostport}
+		}
+	}
+}
+
+github.com {
+	import artifact_host github.com
+}
+
+codeload.github.com {
+	import artifact_host codeload.github.com
+}
+
+objects.githubusercontent.com {
+	import blob_host objects.githubusercontent.com
+}
+
+release-assets.githubusercontent.com {
+	import blob_host release-assets.githubusercontent.com
+}
+
+nodejs.org {
+	import artifact_host nodejs.org
+}
+
+windows.php.net {
+	import artifact_host windows.php.net
+}
+
+cdn.mysql.com {
+	import artifact_host cdn.mysql.com
+}
+
+static.rust-lang.org {
+	import artifact_host static.rust-lang.org
+}
+
+go.dev {
+	import artifact_host go.dev
+}
+
+dl.google.com {
+	import artifact_host dl.google.com
+}
+
+download.docker.com {
+	import artifact_host download.docker.com
+}
+
+www.7-zip.org {
+	import artifact_host www.7-zip.org
+}
+
+nginx.org {
+	import artifact_host nginx.org
+}
+
+aka.ms {
+	import artifact_host aka.ms
+}
+
+download.visualstudio.microsoft.com {
+	import artifact_host download.visualstudio.microsoft.com
+}
+
+# Plain-HTTP status site: a health check and the root CA certificate clients must trust
+http://:8080 {
+	log {
+		output stdout
+		format json
+	}
+
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	handle /root.crt {
+		root * C:/caddy-data/pki/authorities/local
+		header Content-Type application/x-x509-ca-cert
+		file_server
+	}
+
+	handle {
+		respond "not found" 404
+	}
+}

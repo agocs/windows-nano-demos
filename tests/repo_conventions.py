@@ -24,6 +24,9 @@ FORK_GUARD = (
 # ADR 0008
 WINDOWS_VERSIONS = ["2019", "2022", "2025"]
 DEFAULT_WINDOWS_VERSION = "2025"
+# Images that build fewer versions than WINDOWS_VERSIONS, each recorded in an ADR.
+# ADR 0012: the artifact cache runs only on nanoserver ltsc2025.
+WINDOWS_VERSION_EXCEPTIONS = {"nano-server-artifact-cache": ["2025"]}
 BASE_IMAGE_ARG = re.compile(
     r"^ARG BASE_IMAGE=mcr\.microsoft\.com/windows/(nanoserver|servercore):ltsc\$\{WINDOWS_VERSION\}-amd64$"
 )

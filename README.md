@@ -11,3 +11,4 @@ Right now there is a PHP one. It has node and PHP and it works. I don't have not
 - [nano-server-ssh](nano-server-ssh/README.md): Win32-OpenSSH server on nanoserver where clients log in as real local Windows users (password and public key).
 - [nano-server-go](nano-server-go/README.md): Go, MinGit and the micro editor for Go development.
 - [nano-server-powershell](nano-server-powershell/README.md): PowerShell 7 with MinGit, micro, Pester, PSScriptAnalyzer, platyPS, PSReadLine and PSResourceGet.
+- [nano-server-artifact-cache](nano-server-artifact-cache/README.md): a Caddy caching HTTPS proxy for build artifacts (issue #24). nanoserver ltsc2025 only, an exception recorded in [ADR 0012](docs/adr/0012-artifact-cache-with-caddy-on-ltsc2025.md).

@@ -17,6 +17,10 @@ on:
         description: 'JSON map from Windows version to base image, for versions that need a different base, e.g. {"2025": "mcr.microsoft.com/windows/servercore:ltsc2025-amd64"}'
         type: string
         default: '{}'
+      windows-versions:
+        description: 'JSON list of Windows versions to build. Every image builds all three (ADR 0008) unless an ADR records an exception, e.g. ["2025"] for the artifact cache (ADR 0012)'
+        type: string
+        default: '["2019", "2022", "2025"]'
       timeout-minutes:
         description: Job timeout. A stuck build would otherwise hold a shared runner for 6 hours.
         type: number
@@ -31,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        windows-version: ['2019', '2022', '2025']
+        windows-version: ${{ fromJSON(inputs.windows-versions) }}
     env:
       IMAGE: ${{ inputs.image }}:ci-${{ matrix.windows-version }}-${{ github.sha }}
       BASE_IMAGE: ${{ fromJSON(inputs.base-image-overrides)[matrix.windows-version] }}

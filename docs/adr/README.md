@@ -15,3 +15,4 @@ These records explain why this repo is built the way it is. Each one covers a si
 | 0009 | [All image builds use one reusable workflow](0009-all-image-builds-use-one-reusable-workflow.md) | Accepted | 2026-11-04 |
 | 0010 | [Python tooling uses uv, with the Python version set by the `UV_PYTHON` environment variable](0010-python-tooling-uses-uv-with-the-python-version-from-uv-python.md) | Accepted | 2026-11-04 |
 | 0011 | [Repository conventions are enforced by tests in CI](0011-repository-conventions-are-enforced-by-tests-in-ci.md) | Accepted | 2026-11-04 |
+| 0012 | [Artifact cache with Caddy on ltsc2025](0012-artifact-cache-with-caddy-on-ltsc2025.md) | Proposed | 2026-11-04 |

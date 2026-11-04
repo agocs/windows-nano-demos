@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 import pytest
@@ -13,6 +14,7 @@ from repo_conventions import (
     RUNNER_LABELS,
     SMOKE_TEST,
     TRUSTED_ACTION_OWNERS,
+    WINDOWS_VERSION_EXCEPTIONS,
     WINDOWS_VERSIONS,
     all_jobs,
     callers_of_reusable,
@@ -121,10 +123,13 @@ class TestReusableWorkflow:
     def test_runs_on_the_self_hosted_runner(self, reusable_job: dict) -> None:
         assert runs_on(reusable_job) == RUNNER_LABELS
 
-    def test_builds_every_windows_version_without_fail_fast(self, reusable_job: dict) -> None:
+    def test_builds_every_windows_version_without_fail_fast(self, reusable: dict, reusable_job: dict) -> None:
         strategy = reusable_job["strategy"]
         assert strategy["fail-fast"] is False
-        assert [str(v) for v in strategy["matrix"]["windows-version"]] == WINDOWS_VERSIONS
+        # The matrix comes from the windows-versions input, which defaults to every version (ADR 0008)
+        assert normalize_expression(str(strategy["matrix"]["windows-version"])) == "fromJSON(inputs.windows-versions)"
+        default = reusable["on"]["workflow_call"]["inputs"]["windows-versions"]["default"]
+        assert json.loads(default) == WINDOWS_VERSIONS
 
     def test_builds_with_more_memory_and_the_version_argument(self, reusable_job: dict) -> None:
         builds = [s["run"] for s in reusable_job["steps"] if "docker build" in s.get("run", "")]
@@ -163,6 +168,19 @@ class TestEveryImageHasACallerWorkflow:
                 paths = (triggers.get(event) or {}).get("paths", [])
                 for wanted in (f"{image_dir.name}/**", f".github/workflows/{REUSABLE_WORKFLOW}", f".github/workflows/{wf}"):
                     assert wanted in paths, f"{wf} {event} paths are missing {wanted}"
+
+    def test_builds_every_version_unless_an_adr_says_otherwise(self, image_dir) -> None:
+        for wf, job_id, job in self._callers(image_dir):
+            versions = job["with"].get("windows-versions")
+            if image_dir.name in WINDOWS_VERSION_EXCEPTIONS:
+                assert versions is not None and json.loads(versions) == WINDOWS_VERSION_EXCEPTIONS[image_dir.name], (
+                    f"{wf}:{job_id} must pass windows-versions: {json.dumps(WINDOWS_VERSION_EXCEPTIONS[image_dir.name])}"
+                )
+            else:
+                assert versions is None, (
+                    f"{wf}:{job_id} passes windows-versions; only images listed in WINDOWS_VERSION_EXCEPTIONS "
+                    "(each backed by an ADR) may build fewer than every version"
+                )
 
     def test_has_a_smoke_test(self, image_dir) -> None:
         assert (image_dir / SMOKE_TEST).is_file(), f"{image_dir.name}/{SMOKE_TEST} is missing"

@@ -339,7 +339,7 @@ Wine 11.0 x86_64 PE programs, copied unmodified into `C:\wine` on nanoserver lts
 - Wine source tarballs: <https://dl.winehq.org/wine/source/11.0/>
 - Wine source tree: <https://gitlab.winehq.org/wine/wine>
 - Wine architecture overview (PE modules and unixlibs): <https://gitlab.winehq.org/wine/wine/-/wikis/Wine-Developer%27s-Guide/Architecture-Overview>
-- Wine 8.0 release notes (PE conversion complete, `--enable-archs`): <https://www.winehq.org/announce/8.0>
+- Wine 8.0 release notes (PE conversion complete, `--enable-archs`): <https://gitlab.winehq.org/wine/wine/-/releases/wine-8.0>
 - Wine licensing: <https://wiki.winehq.org/Licensing>
 - LGPL-2.1 text: <https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html>
 - `winecrt0` debug fallbacks: <https://github.com/wine-mirror/wine/blob/wine-11.0/dlls/winecrt0/debug.c> (lines 53-59 and 156-209)

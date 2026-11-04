@@ -1,0 +1,93 @@
+name: Vim and Neovim containers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nano-server-vim/**'
+      - 'nano-server-neovim/**'
+      - '.github/workflows/vim-neovim.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nano-server-vim/**'
+      - 'nano-server-neovim/**'
+      - '.github/workflows/vim-neovim.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    # Self-hosted runners must never run code from forks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, windows, docker]
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [vim, neovim]
+        windows-version: ['2019', '2022', '2025']
+    env:
+      WINDOWS_VERSION: ${{ matrix.windows-version }}
+      IMAGE_TAG: windows-nano-${{ matrix.image }}:ci-ltsc${{ matrix.windows-version }}-${{ github.sha }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          docker build --build-arg "WINDOWS_VERSION=${{ matrix.windows-version }}" -t "$env:IMAGE_TAG" "nano-server-${{ matrix.image }}"
+          if ($LASTEXITCODE -ne 0) { throw "docker build failed with exit code $LASTEXITCODE" }
+          docker image ls "$env:IMAGE_TAG"
+
+      - name: Smoke test
+        timeout-minutes: 20
+        run: |
+          $PSNativeCommandArgumentPassing = 'Standard'
+          # Each test is an argv array for the image's "cmd /S /C" entrypoint, plus a regex the output must match.
+          # Pass separate arguments rather than one string: docker on Windows re-escapes embedded double
+          # quotes as \" which cmd.exe does not understand, and vim then waits forever on the mangled command.
+          $tests = switch ('${{ matrix.image }}') {
+            'vim' {
+              @(
+                @{ Args = @('vim', '--version'); Expect = 'VIM - Vi IMproved' }
+                @{ Args = @('vim', '-Nu', 'NONE', '-Es', '-c', "put ='hello'", '-c', 'wq C:\t.txt', '&&', 'findstr', '/x', 'hello', 'C:\t.txt'); Expect = '(?m)^hello' }
+                @{ Args = @('vim', '-Nu', 'NONE', '-Es', "+verbose echo has('win32')", '+q'); Expect = '1' }
+                @{ Args = @('git', '--version'); Expect = 'git version' }
+              )
+            }
+            'neovim' {
+              @(
+                @{ Args = @('nvim', '--version'); Expect = 'NVIM v' }
+                @{ Args = @('nvim', '--headless', '-c', "lua io.write('ok')", '-c', 'q'); Expect = 'ok' }
+                @{ Args = @('nvim', '--clean', '--headless', '-c', "call setline(1, 'hello')", '-c', 'w C:\t.txt', '-c', 'q', '&&', 'findstr', '/x', 'hello', 'C:\t.txt'); Expect = 'hello' }
+                @{ Args = @('git', '--version'); Expect = 'git version' }
+              )
+            }
+          }
+          $failures = 0
+          foreach ($t in $tests) {
+            $name = $t.Args -join ' '
+            Write-Host "::group::$name"
+            $out = (docker run --rm "$env:IMAGE_TAG" @($t.Args) 2>&1 | Out-String)
+            $code = $LASTEXITCODE
+            Write-Host $out
+            Write-Host "exit code: $code"
+            Write-Host '::endgroup::'
+            if ($code -eq -1073741515) {
+              Write-Host "::error::Missing DLL (0xC0000135): $name"; $failures++
+            } elseif ($code -eq -1073741511) {
+              Write-Host "::error::Missing DLL export (0xC0000139): $name"; $failures++
+            } elseif ($code -ne 0) {
+              Write-Host "::error::Exit code ${code}: $name"; $failures++
+            } elseif ($out -notmatch $t.Expect) {
+              Write-Host "::error::Output did not match '$($t.Expect)': $name"; $failures++
+            }
+          }
+          if ($failures -gt 0) { throw "$failures smoke test(s) failed" }
+
+      - name: Clean up image
+        if: always()
+        run: |
+          docker image rm -f "$env:IMAGE_TAG" 2>&1 | Out-Null
+          exit 0

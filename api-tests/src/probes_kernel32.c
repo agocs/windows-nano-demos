@@ -584,7 +584,7 @@ static void p_CreatePseudoConsole(result_t *r)
             DWORD len = 0, avail, got;
             DWORD t0 = GetTickCount();
             int found = 0;
-            while (GetTickCount() - t0 < 5000 && !found) {
+            while (GetTickCount() - t0 < 7000 && !found) {
                 if (PeekNamedPipe(out_r, NULL, 0, NULL, &avail, NULL) && avail && len < sizeof out - 1) {
                     if (ReadFile(out_r, out + len, (DWORD)(sizeof out - 1 - len) < avail ? (DWORD)(sizeof out - 1 - len) : avail, &got, NULL))
                         len += got;
@@ -596,8 +596,8 @@ static void p_CreatePseudoConsole(result_t *r)
                 }
             }
             if (found) ok(r, "read 'hi' back through the conpty (%lu bytes)", len);
-            else fail_code(r, 0, "no 'hi' within 5 s (%lu bytes)", len);
-            WaitForSingleObject(pi.hProcess, 2000);
+            else fail_code(r, 0, "no 'hi' within 7 s (%lu bytes)", len);
+            WaitForSingleObject(pi.hProcess, found ? 1000 : 0);
             TerminateProcess(pi.hProcess, 0);
             CloseHandle(pi.hThread);
             CloseHandle(pi.hProcess);

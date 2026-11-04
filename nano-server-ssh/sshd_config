@@ -1,0 +1,27 @@
+# sshd_config for the windows-nano-ssh demo container.
+# Copied to C:\ProgramData\ssh\sshd_config at build time.
+
+Port 22
+ListenAddress 0.0.0.0
+
+HostKey __PROGRAMDATA__/ssh/ssh_host_ed25519_key
+HostKey __PROGRAMDATA__/ssh/ssh_host_ecdsa_key
+HostKey __PROGRAMDATA__/ssh/ssh_host_rsa_key
+
+PubkeyAuthentication yes
+PasswordAuthentication yes
+PermitEmptyPasswords no
+KbdInteractiveAuthentication no
+
+# Normal users: %USERPROFILE%\.ssh\authorized_keys
+AuthorizedKeysFile .ssh/authorized_keys
+
+# Log to C:\ProgramData\ssh\logs\sshd.log; start-sshd.cmd echoes it to docker logs.
+SyslogFacility LOCAL0
+LogLevel VERBOSE
+
+Subsystem sftp sftp-server.exe
+
+# Members of the local Administrators group use the machine-wide key file.
+Match Group administrators
+    AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys

@@ -36,6 +36,8 @@ build.cmd
 
 `WINDOWS_VERSION` can be `2019`, `2022` or `2025`. To use a different base image, set `BASE_IMAGE` (for example `mcr.microsoft.com/windows/nanoserver:ltsc2025-amd64`) and `build.cmd` passes it to `docker build`.
 
+`build.cmd` passes `--memory 4g` because Hyper-V isolated builds default to 1 GB, and extracting the Go zip can hang with that little memory.
+
 ## Usage
 
 Run a shell:

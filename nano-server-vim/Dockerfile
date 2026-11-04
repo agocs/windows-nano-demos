@@ -1,4 +1,4 @@
-ARG WINDOWS_VERSION=2022
+ARG WINDOWS_VERSION=2025
 # This image uses servercore instead of nanoserver: vim64.dll (which vim.exe loads) imports
 # kernel32!DebugBreakProcess, gdi32!GetNearestColor/SetAbortProc and winmm!mciSendString*, which the
 # nanoserver ltsc2019, ltsc2022 and ltsc2025 forwarder DLLs do not export, so vim fails to start with

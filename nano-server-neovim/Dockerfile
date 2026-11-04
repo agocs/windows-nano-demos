@@ -1,4 +1,4 @@
-ARG WINDOWS_VERSION=2022
+ARG WINDOWS_VERSION=2025
 # This image uses servercore instead of nanoserver: nvim.exe imports kernel32!DebugBreakProcess,
 # which the kernel32.dll in nanoserver ltsc2019, ltsc2022 and ltsc2025 does not export, so it fails
 # to start with STATUS_ENTRYPOINT_NOT_FOUND (0xC0000139). kernel32.dll can't be replaced inside a
@@ -17,12 +17,17 @@ RUN mkdir C:\vcrt && \
 
 FROM ${BASE_IMAGE}
 
+# The default is for ltsc2025. Newer Neovim releases don't run on older Windows builds, so build.cmd and
+# the CI workflow override it: ltsc2019 needs 0.11.2 (0.11.3+ fail with STATUS_DLL_INIT_FAILED, 0xC0000142)
+# and ltsc2022 needs 0.11.6 (0.11.7+ exit immediately without output). See README.md.
+ARG NEOVIM_VERSION=0.12.6
+
 # Pinned tool versions.
 # MinGit is installed to "MinGit" rather than "Git" on purpose: its etc\gitconfig includes
 # "C:/Program Files/Git/etc/gitconfig", so installing it there makes git include itself
 # until it fails with "exceeded maximum include depth".
 ENV \
-    NEOVIM_VERSION=0.12.6 \
+    NEOVIM_VERSION=${NEOVIM_VERSION} \
     NEOVIM_DIR="C:\\Program Files\\nvim-win64" \
     MINGIT_TAG=v2.56.0.windows.4 \
     MINGIT_VERSION=2.56.0.4 \

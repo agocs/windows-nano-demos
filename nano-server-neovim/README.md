@@ -13,11 +13,18 @@ Neovim needs the Visual C++ runtime (`vcruntime140.dll`). Server Core doesn't sh
 
 ## Building
 
-To build a 2022 container:
+To build a 2025 container:
 
 ```cmd
 build.cmd
 ```
+
+Older Windows builds need older Neovim releases than the version pinned in the `Dockerfile` (used for ltsc2025):
+
+- ltsc2019 uses Neovim 0.11.2. `nvim.exe` from 0.11.3 and later fails to start with `STATUS_DLL_INIT_FAILED` (0xC0000142).
+- ltsc2022 uses Neovim 0.11.6. `nvim.exe` from 0.11.7 and later (including 0.12.x) exits immediately without printing anything or doing any work.
+
+`build.cmd` passes the matching `--build-arg NEOVIM_VERSION=...`; do the same if you call `docker build` directly.
 
 To build the windows 2019 container:
 

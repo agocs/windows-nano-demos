@@ -13,7 +13,7 @@ The bundled `libsodium.dll` (used for `:X` encryption) needs `vcruntime140.dll`.
 
 ## Building
 
-To build a 2022 container:
+To build a 2025 container:
 
 ```cmd
 build.cmd

@@ -20,6 +20,7 @@ jobs:
     # Self-hosted runners must never run code from forks.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, windows, docker]
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -36,7 +37,13 @@ jobs:
 
       - name: Build image
         run: |
-          docker build --build-arg "WINDOWS_VERSION=${{ matrix.windows-version }}" -t "$env:IMAGE_TAG" "nano-server-${{ matrix.image }}"
+          $extra = @()
+          # Older Windows builds need older Neovim releases (see nano-server-neovim/README.md).
+          if ('${{ matrix.image }}' -eq 'neovim') {
+            $pin = @{ '2019' = '0.11.2'; '2022' = '0.11.6' }['${{ matrix.windows-version }}']
+            if ($pin) { $extra += @('--build-arg', "NEOVIM_VERSION=$pin") }
+          }
+          docker build --memory 4g --build-arg "WINDOWS_VERSION=${{ matrix.windows-version }}" @extra -t "$env:IMAGE_TAG" "nano-server-${{ matrix.image }}"
           if ($LASTEXITCODE -ne 0) { throw "docker build failed with exit code $LASTEXITCODE" }
           docker image ls "$env:IMAGE_TAG"
 

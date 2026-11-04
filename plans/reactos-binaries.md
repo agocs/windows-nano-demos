@@ -197,7 +197,7 @@ Notes for the implementer:
 
 ## Licensing
 
-- ReactOS is mostly **GPL-2.0-or-later**. Many user-mode pieces came from Wine and are **LGPL-2.1-or-later**, and a few files are BSD or MIT. See `COPYING` and `COPYING.LIB` in <https://github.com/reactos/reactos> and <https://reactos.org/wiki/ReactOS_License>.
+- ReactOS is mostly **GPL-2.0-or-later**. Many user-mode pieces came from Wine and are **LGPL-2.1-or-later**, and a few files are BSD or MIT. See `COPYING` and `COPYING.LIB` in <https://github.com/reactos/reactos> and <https://github.com/reactos/reactos/blob/master/CREDITS>.
 - Pushing the image to Docker Hub is distribution of object code. GPL-2.0 section 3 then requires the complete corresponding source. Plan:
   - Section 3(a) is the most robust option: publish the source archive at the pinned commit, `https://github.com/reactos/reactos/archive/e25c37366b65d94985522a931f76351d6b244234.zip`, as a release asset in this repo next to the image tag. A link to someone else's server is weaker than hosting it ourselves.
   - The binary patch is a modification. The scripts that make it (`Set-PeImportName.ps1`, the shim source and the `.def` generator) are in this repo and are part of the corresponding source. License them GPL-2.0-or-later (or MIT, which is compatible) and say so in their headers.
@@ -399,7 +399,7 @@ The import-name rewrite (core of `Set-PeImportName.ps1`): walk the import direct
 - ReactOS nightly builds: <https://reactos.org/getbuilds/> and <https://iso.reactos.org/bootcd/>
 - ReactOS releases (x86 only): <https://github.com/reactos/reactos/releases>
 - ReactOS AMD64 port status: <https://www.reactos.org/wiki/AMD64>
-- ReactOS license: <https://reactos.org/wiki/ReactOS_License>
+- ReactOS license: <https://github.com/reactos/reactos/blob/master/COPYING> and <https://github.com/reactos/reactos/blob/master/CREDITS>
 - GPL-2.0 text: <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>
 - 7-Zip: <https://www.7-zip.org/download.html>
 - PowerShell releases: <https://github.com/PowerShell/PowerShell/releases>

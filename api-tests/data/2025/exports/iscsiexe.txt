@@ -1,0 +1,12 @@
+DiscpEstablishServiceLinkage
+iSNSBuildRequestPacket
+iSNSGetPGTag
+iSNSGetResponseErrorCode
+iSNSParseAndDispatchServerRequest
+iSNSParseGetNextResponse
+iSNSParseQueryResponse
+iSNSProcessESI
+iSNSProcessSCN
+iSNSSetupResponsePacket
+ServiceMain
+SvchostPushServiceGlobals

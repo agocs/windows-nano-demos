@@ -1,0 +1,6 @@
+GetSystemConfiguredForHotPatchStatus
+GetSystemReadyForHotPatchStatus
+IsValidAzureAssetTag
+IsValidAzureIMDS
+RemoveEnrollmentKBPreReq
+SetEnrollmentKBPreReq

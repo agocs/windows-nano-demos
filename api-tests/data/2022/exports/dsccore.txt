@@ -1,0 +1,16 @@
+CATraps
+CreateAuthenticationCertificateWrapper
+CUTraps
+DllCanUnloadNow
+DllGetClassObject
+DllMain
+DllRegisterServer
+DllUnregisterServer
+GetProviderClassID
+LCMTraps
+MI_Main
+NITS_PRESENCE_STUB
+NITS_STUB
+SysPrep_Cleanup
+ValidateCertificateExpirationWrapper
+ValidatorTraps

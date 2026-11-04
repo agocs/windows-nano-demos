@@ -1,0 +1,11 @@
+DllMain
+KerbCreateTokenFromTicketForKdc
+KerbDomainChangeCallback
+Kerberos
+KerbIsInitialized
+KerbKdcCallBack
+KerbMakeKdcCall
+SpInitialize
+SpInstanceInit
+SpLsaModeInitialize
+SpUserModeInitialize

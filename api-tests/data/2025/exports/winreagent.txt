@@ -1,0 +1,7 @@
+BackupWinRE
+CreateWinREServicingManager
+GetWinREAgentVersion
+GetWinREVersion
+LoadWinREServicingManager
+RestoreWinRE
+SaveWinREServicingManager

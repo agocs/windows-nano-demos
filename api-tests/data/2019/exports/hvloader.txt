@@ -1,0 +1,6 @@
+HvlLaunchHypervisor
+HvlLoadHypervisor
+HvlPreloadHypervisor
+HvlRegisterRuntimeRange
+HvlRescindVsm
+HvlUpdateMcUpdateStatus

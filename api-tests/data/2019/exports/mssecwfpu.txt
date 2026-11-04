@@ -1,0 +1,4 @@
+SecSetWfpGuardConfiguration
+SecWfpAllowDriverUnload
+SecWfpClose
+SecWfpOpen

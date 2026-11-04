@@ -1,0 +1,3 @@
+DeclaredConfigurationResourceCleanup
+ServiceMain
+SvchostPushServiceGlobals

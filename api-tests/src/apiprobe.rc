@@ -1,0 +1,8 @@
+// apiprobe.rc - string resource for the user32!LoadStringW probe, and a
+// manifest that declares Windows 10 support so GetVersionExW is not shimmed.
+1 24 "apiprobe.manifest"
+
+STRINGTABLE
+BEGIN
+    101 "apiprobe hello"
+END

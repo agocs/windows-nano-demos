@@ -1,0 +1,5 @@
+imp_WppRecorderLogDumpLiveData
+WppAutoLogGetDefaultHandle
+WppAutoLogStart
+WppAutoLogStop
+WppAutoLogTrace

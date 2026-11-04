@@ -1,0 +1,6 @@
+DispBrokerTraceLogCallback
+DispBrokerTraceLogCaptureRingBuffer
+DispBrokerTraceLogHelper
+DllCanUnloadNow
+DllGetActivationFactory
+DllGetClassObject

@@ -1,0 +1,8 @@
+OslGenRandomBytes
+OslGetControlSubkeyCell
+OslGetExportRoutineInModule
+OslGetStringValue
+OslGetValue
+OslIsRunningInSecureKernel
+TcbLoadEntry
+TcbResumeEntry

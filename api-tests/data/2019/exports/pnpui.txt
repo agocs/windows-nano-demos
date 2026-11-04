@@ -1,0 +1,6 @@
+DllCanUnloadNow
+DllGetClassObject
+InstallSecurityPrompt
+InstallSecurityPromptRunDllW
+NotifyDevicesNeedRebootRunDllW
+SimplifiedDINotificationW

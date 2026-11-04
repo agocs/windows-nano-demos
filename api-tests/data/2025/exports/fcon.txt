@@ -1,0 +1,16 @@
+DllCanUnloadNow
+DllGetActivationFactory
+DllGetClassObject
+FeatureTuning_FreeSchemas
+FeatureTuning_GetSchemaForModule
+FeatureTuning_WriteConfig
+GetAllFeatureIds
+GetAllFeatures
+GetCtacPropertyAlloc
+GetFeatureConfigurationInfo
+GetFeatureDependencies
+GetFeatureDescendents
+ModifyStagingControls
+ModifyStagingControlVariants
+SubscribeFeatureReporting
+UnsubscribeFeatureReporting

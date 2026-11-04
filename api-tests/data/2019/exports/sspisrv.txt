@@ -1,0 +1,5 @@
+SspirAcquireCredentialsHandle
+SspirDeleteSecurityContext
+SspirProcessSecurityContext
+SspiSrvClientCallback
+SspiSrvInitialize

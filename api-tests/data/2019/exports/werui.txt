@@ -1,0 +1,13 @@
+WerUICreate
+WerUIDelete
+WerUIGetUserSelection
+WerUIPromptForSecondLevel
+WerUIPromptUser
+WerUIReportHang
+WerUIReportSilentProcessExit
+WerUIShowUpsell
+WerUIStart
+WerUITerminate
+WerUIUpdateStateProgress
+WerUIUpdateUIForState
+WerUIWaitForUserAction

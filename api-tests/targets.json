@@ -1,0 +1,8 @@
+{
+  "targets": [
+    { "name": "nanoserver", "base_image": "mcr.microsoft.com/windows/nanoserver:ltsc{v}-amd64" },
+    { "name": "servercore", "base_image": "mcr.microsoft.com/windows/servercore:ltsc{v}-amd64" },
+    { "name": "reactos-tools", "build_folder": "nano-server-reactos-tools", "image": "windows-nano-reactos-tools:{v}" },
+    { "name": "wine-tools", "build_folder": "nano-server-wine-tools", "image": "windows-nano-wine-tools:{v}" }
+  ]
+}

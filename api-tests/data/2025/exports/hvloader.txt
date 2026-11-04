@@ -1,0 +1,7 @@
+HvlCancelHypervisorLaunch
+HvlExchangeDispatchInterface
+HvlLaunchHypervisor
+HvlLoadHypervisor
+HvlPreloadHypervisor
+HvlRegisterRuntimeRange
+HvlRescindVsm

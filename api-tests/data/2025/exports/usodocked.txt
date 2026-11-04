@@ -1,0 +1,4 @@
+DllCanUnloadNow
+DllGetClassObject
+GetDockedComponent
+IsCapabilityEnabled

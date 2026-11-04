@@ -1,0 +1,11 @@
+GetAsymmetricEncryptionInterface
+GetCipherInterface
+GetHashInterface
+GetKeyDerivationInterface
+GetKeyEncapsulationInterface
+GetRngInterface
+GetSecretAgreementInterface
+GetSignatureInterface
+MSCryptConvertRsaPrivateBlobToFullRsaBlob
+ProcessPrng
+ProcessPrngGuid

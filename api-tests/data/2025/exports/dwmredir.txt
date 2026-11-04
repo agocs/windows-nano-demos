@@ -1,0 +1,4 @@
+DwmInitializePort
+DwmRedirectionManagerInitialize
+DwmRedirectionManagerShutdown
+DwmRegisterWindowNotificationHandler

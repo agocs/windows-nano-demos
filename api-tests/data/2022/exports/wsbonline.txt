@@ -1,0 +1,3 @@
+DeregisterOnlineBackupFromWindowsServerBackup
+RegisterOnlineBackupWithWindowsServerBackup
+UpdateOBStatusInWindowsServerBackup

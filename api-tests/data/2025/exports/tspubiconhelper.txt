@@ -1,0 +1,4 @@
+TSFreeStartMenuContext
+TSGetIcon
+TSGetStartMenuApplications
+TSSignRdpFile

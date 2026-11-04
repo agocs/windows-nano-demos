@@ -1,0 +1,11 @@
+NlaAddToTypeSet
+NlaCloseQuery
+NlaCreateTypeSet
+NlaDeleteDataSet
+NlaDeleteTypeSet
+NlaGetCaptivePortalHosts
+NlaIndicateReprobe
+NlaQueryNetData
+NlaQueryNetDataEx
+NlaQueryNetSignatures
+NlaRegisterQuery

@@ -1,0 +1,175 @@
+name: Win32 API tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api-tests/**'
+      - '.github/workflows/api-tests.yml'
+  # Not limited to main, so PRs into feature and plan branches run too.
+  pull_request:
+    paths:
+      - 'api-tests/**'
+      - '.github/workflows/api-tests.yml'
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Run probes that need the network
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  build-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MinGW-w64
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 make
+
+      - name: Build apiprobe.exe
+        run: make -C api-tests/src
+
+      - name: Imports must be kernel32 and msvcrt only
+        run: |
+          dlls=$(x86_64-w64-mingw32-objdump -p api-tests/bin/apiprobe.exe | awk '/DLL Name:/ {print tolower($3)}' | sort -u | tr '\n' ' ')
+          echo "imports: $dlls"
+          test "$dlls" = "kernel32.dll msvcrt.dll "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apiprobe
+          path: api-tests/bin/apiprobe.exe
+          if-no-files-found: error
+
+  probe:
+    needs: build-probe
+    # Self-hosted runners must never run code from forks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, windows, docker]
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        windows-version: ['2019', '2022', '2025']
+        target: [nanoserver, servercore, reactos-tools, wine-tools]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      IMAGE: api-probe:${{ matrix.target }}-${{ matrix.windows-version }}-${{ github.run_id }}
+      CTR: api-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.target }}-${{ matrix.windows-version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: apiprobe
+          path: api-tests/bin
+
+      # Writes base_image=... and skip=true|false to $GITHUB_OUTPUT; targets
+      # with a build_folder that does not exist yet are skipped.
+      - name: Resolve or build the target image
+        id: target
+        run: ./api-tests/scripts/Resolve-Target.ps1 -Name ${{ matrix.target }} -WindowsVersion ${{ matrix.windows-version }}
+
+      # The runner is itself a container talking to the host daemon, so the
+      # build context is sent over the API (no bind mounts are used anywhere).
+      - name: Build the probe layer
+        if: steps.target.outputs.skip != 'true'
+        working-directory: api-tests
+        run: |
+          for ($attempt = 1; $attempt -le 2; $attempt++) {
+            $log = docker build --memory 4g --build-arg WINDOWS_VERSION=${{ matrix.windows-version }} --build-arg BASE_IMAGE=${{ steps.target.outputs.base_image }} -t $env:IMAGE . 2>&1
+            $rc = $LASTEXITCODE
+            $log | Write-Host
+            if ($rc -eq 0) { exit 0 }
+            if ($attempt -eq 1 -and ($log -match 'hcs.*context deadline exceeded')) { Write-Host 'retrying'; continue }
+            exit $rc
+          }
+
+      - name: Run probes
+        if: steps.target.outputs.skip != 'true'
+        run: |
+          $net = '${{ inputs.network }}' -eq 'true' ? ' --network' : ''
+          $v = '${{ matrix.windows-version }}'
+          $t = '${{ matrix.target }}'
+          $cmd = "C:\api-tests\apiprobe.exe --level all --target $t --windows-version $v --junit C:\results\results.xml --jsonl C:\results\results.jsonl --baseline C:\api-tests\expectations\$t-$v.txt --write-baseline C:\results\baseline-$t-$v.txt$net"
+          for ($attempt = 1; $attempt -le 2; $attempt++) {
+            docker rm -f $env:CTR 2>$null | Out-Null
+            docker run --name $env:CTR --memory 2g $env:IMAGE $cmd 2>&1 | Tee-Object -Variable log | Write-Host
+            $rc = $LASTEXITCODE
+            if ($attempt -eq 1 -and $rc -ne 0 -and ($log -match 'hcs.*context deadline exceeded')) { Write-Host 'retrying'; continue }
+            break
+          }
+          New-Item -ItemType Directory -Force results | Out-Null
+          docker cp "$($env:CTR):C:\results\." results
+          Get-ChildItem results | Format-Table Name, Length | Out-String | Write-Host
+          exit $rc
+
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.target.outputs.skip != 'true'
+        with:
+          name: api-results-${{ matrix.target }}-${{ matrix.windows-version }}
+          path: results/
+          if-no-files-found: warn
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker rm -f $env:CTR 2>$null
+          docker rmi -f $env:IMAGE 2>$null
+          exit 0
+
+  report:
+    needs: probe
+    if: always() && needs.probe.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: api-results-*
+          path: results
+
+      - name: JUnit files are well formed
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils
+          shopt -s nullglob
+          files=(results/*/results.xml)
+          if [ ${#files[@]} -eq 0 ]; then echo "::warning::no results.xml files"; exit 0; fi
+          xmllint --noout "${files[@]}"
+
+      - uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        if: always()
+        with:
+          name: Win32 API results
+          path: 'results/**/results.xml'
+          reporter: java-junit
+          fail-on-error: false
+          fail-on-empty: false
+          list-suites: failed
+          list-tests: failed
+
+      - name: Compatibility matrix
+        if: always()
+        shell: pwsh
+        run: |
+          ./api-tests/scripts/ConvertTo-ApiMatrix.ps1 -Path results -Out api-matrix.md
+          $md = Get-Content -Raw api-matrix.md
+          # The step summary is limited to 1 MiB.
+          if ($md.Length -gt 900KB) { $md = $md.Substring(0, 900KB) + "`n`n(truncated, see the api-matrix artifact)`n" }
+          $md | Add-Content $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-matrix
+          path: api-matrix.md

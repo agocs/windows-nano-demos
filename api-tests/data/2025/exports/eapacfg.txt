@@ -1,0 +1,6 @@
+EapHostAuthenticatorFreeErrorMemory
+EapHostAuthenticatorFreeMemory
+EapHostAuthenticatorFreeMethodInfoArrayEx
+EapHostAuthenticatorGetMethods
+EapHostAuthenticatorGetMethodsEx
+EapHostAuthenticatorInvokeConfigUI

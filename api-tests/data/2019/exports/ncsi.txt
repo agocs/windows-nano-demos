@@ -1,0 +1,10 @@
+NcsiAllocateAndGetConnectivityStatusSet
+NcsiDeregisterConnectivityStatusChange
+NcsiFreeConnectivityStatusSet
+NcsiGetCaptivePortalHosts
+NcsiIdentifyUserSpecificProxies
+NcsiNotifySessionChange
+NcsiPerformRefresh
+NcsiPerformReprobe
+NcsiRegisterConnectivityStatusChange
+NcsiUpdateClientPresence

@@ -1,0 +1,11 @@
+OslGenRandomBytes
+OslGetControlSubkeyCell
+OslGetExportRoutineInModule
+OslGetFirmwarePayload
+OslGetHotPatchPath
+OslGetStringValue
+OslGetSubkey
+OslGetValue
+OslIsRunningInSecureKernel
+TcbLoadEntry
+TcbResumeEntry

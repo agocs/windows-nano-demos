@@ -1,0 +1,10 @@
+CredentialUpdateFree
+CredentialUpdateNotify
+CredentialUpdateRegister
+DllMain
+SpInitialize
+SpInstanceInit
+SpLsaModeInitialize
+SpUserModeInitialize
+SsiCredentialsUpdateFree
+SsiCredentialsUpdateNotify

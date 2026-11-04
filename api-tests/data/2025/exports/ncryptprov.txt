@@ -1,0 +1,4 @@
+BCryptIsoDoStateChangeWork
+GetKeyStorageInterface
+SetAuditingInterface
+SKCacheFlush

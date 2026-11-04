@@ -12,7 +12,7 @@ build.cmd
 
 ## Running
 
-The host's docker pipe can only be mounted into a process-isolated container, so the image's Windows version has to be compatible with the host. `ltsc2022` works on Windows 11 and Windows Server 2022. `ltsc2019` doesn't support process isolation on newer hosts.
+The host's docker pipe can only be mounted into a process-isolated container, so the image's Windows version has to be compatible with the host. `ltsc2025`, the default, and `ltsc2022` both work on Windows 11 build 26100 and later. `ltsc2022` also works on Windows Server 2022. `ltsc2019` doesn't support process isolation on newer hosts.
 
 `run-runner.ps1` gets a registration token with the `gh` CLI and starts the container:
 
@@ -27,7 +27,7 @@ docker run -d --name runner --restart unless-stopped --isolation=process `
     -v '\\.\pipe\docker_engine:\\.\pipe\docker_engine' `
     -e RUNNER_URL=https://github.com/zippy1981/windows-nano-demos `
     -e RUNNER_TOKEN=<registration token> `
-    windows-nano-gh-runner:2022
+    windows-nano-gh-runner:2025
 ```
 
 Optional environment variables:

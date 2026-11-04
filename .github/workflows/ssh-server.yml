@@ -1,0 +1,28 @@
+# Builds and tests windows-nano-ssh for every Windows version through the shared workflow (ADR 0009)
+name: SSH server container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nano-server-ssh/**'
+      - '.github/workflows/ssh-server.yml'
+      - '.github/workflows/build-windows-image.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nano-server-ssh/**'
+      - '.github/workflows/ssh-server.yml'
+      - '.github/workflows/build-windows-image.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-windows-image.yml
+    with:
+      context: nano-server-ssh
+      image: windows-nano-ssh
+      # On nanoserver ltsc2025, LSA rejects every local-account logon
+      # (LsaLogonUser S4U -> 0xC00000DF STATUS_NO_SUCH_DOMAIN, LogonUser -> error 1355),
+      # so 2025 uses servercore as the base. See nano-server-ssh/README.md.
+      base-image-overrides: '{"2025": "mcr.microsoft.com/windows/servercore:ltsc2025-amd64"}'

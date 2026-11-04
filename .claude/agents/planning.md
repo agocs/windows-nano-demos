@@ -43,6 +43,17 @@ Pick owners from `.claude/agents/README.md`. The usual split:
 
 Don't assign a task to an agent that lacks the tools for it. For example, `governance` and `windows-dockerfile-reviewer` can't edit files.
 
+## Rules every plan must respect
+
+These are accepted ADRs, and `tests/` enforces them in CI, so a plan that ignores them fails:
+
+- **Windows versions ([ADR 0008](../../docs/adr/0008-images-take-windows-version-defaulting-to-2025-built-as-a-matrix.md)):** every image takes `ARG WINDOWS_VERSION=2025` and `ARG BASE_IMAGE=...ltsc${WINDOWS_VERSION}-amd64`, its last stage is `FROM ${BASE_IMAGE}`, and its `build.cmd` defaults to 2025 and forwards `BASE_IMAGE`.
+- **Shared build workflow ([ADR 0009](../../docs/adr/0009-all-image-builds-use-one-reusable-workflow.md)):** a new image gets a small caller workflow that `uses: ./.github/workflows/build-windows-image.yml`, plus a `<folder>/smoke-test.ps1` that takes `-Image`. It never gets its own build job or matrix. Give the caller to `workflow-author` and the smoke test to `powershell-author`.
+- **Convention tests ([ADR 0010](../../docs/adr/0010-python-tooling-uses-uv-with-the-python-version-from-uv-python.md), [ADR 0011](../../docs/adr/0011-repository-conventions-are-enforced-by-tests-in-ci.md)):**
+  - Every phase that adds or changes a workflow, Dockerfile or `build.cmd` ends with a `windows-container-builder` or `workflow-author` task whose acceptance check is that `uv run pytest` passes and the `Repo tests` workflow is green.
+  - A plan that changes a convention includes an `adr` task (supersede or amend the record) and a `python-author` task (change the constant in `tests/repo_conventions.py` and its tests). Both go in the same phase as the change.
+- **Python:** Python work goes to `python-author`, using uv with the version taken from `UV_PYTHON`. It runs on `ubuntu-latest` or developer machines, never on the self-hosted runners. Anything that must run on the runners goes to `powershell-author`.
+
 ## Delegating
 
 After the plan is written and the caller agrees, delegate steps with the Agent tool, one agent per task, passing the plan path and the task text. If the Agent tool isn't available (for example, when you run as a subagent), stop and return the plan path with the ordered list of tasks and owners so the caller can dispatch them. Tick items in the plan only when the owning agent reports the acceptance check passed.

@@ -1,0 +1,65 @@
+# Shared build-and-test job for every Windows image (ADR 0009).
+# Each image's workflow calls this with its folder and image name.
+name: Build Windows image
+
+on:
+  workflow_call:
+    inputs:
+      context:
+        description: Image folder, which is the docker build context and holds smoke-test.ps1
+        type: string
+        required: true
+      image:
+        description: Image name, for example windows-nano-php
+        type: string
+        required: true
+      base-image-overrides:
+        description: 'JSON map from Windows version to base image, for versions that need a different base, e.g. {"2025": "mcr.microsoft.com/windows/servercore:ltsc2025-amd64"}'
+        type: string
+        default: '{}'
+      timeout-minutes:
+        description: Job timeout. A stuck build would otherwise hold a shared runner for 6 hours.
+        type: number
+        default: 60
+
+jobs:
+  build-and-test:
+    # Self-hosted runners have host docker access, so never run code from forks on them (ADR 0003)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, windows, docker]
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        windows-version: ['2019', '2022', '2025']
+    env:
+      IMAGE: ${{ inputs.image }}:ci-${{ matrix.windows-version }}-${{ github.sha }}
+      BASE_IMAGE: ${{ fromJSON(inputs.base-image-overrides)[matrix.windows-version] }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (ltsc${{ matrix.windows-version }})
+        working-directory: ${{ inputs.context }}
+        run: |
+          $buildArgs = @('--build-arg', 'WINDOWS_VERSION=${{ matrix.windows-version }}')
+          if ($env:BASE_IMAGE) { $buildArgs += @('--build-arg', "BASE_IMAGE=$env:BASE_IMAGE") }
+          # Hyper-V isolated builds default to 1 GB of memory, which hangs large extractions
+          docker build --memory 4g @buildArgs -t $env:IMAGE .
+          if ($LASTEXITCODE) { throw "docker build failed: $LASTEXITCODE" }
+
+      - name: Smoke test
+        # The runner is itself a container, so smoke tests use docker run and docker cp, never bind mounts
+        run: ./${{ inputs.context }}/smoke-test.ps1 -Image $env:IMAGE
+
+      - name: Image size
+        run: docker image ls $env:IMAGE --format '{{.Repository}}:{{.Tag}} {{.Size}}'
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker ps -a --filter "ancestor=$env:IMAGE" -q | ForEach-Object { docker rm -f $_ }
+          docker rmi -f $env:IMAGE
+          exit 0

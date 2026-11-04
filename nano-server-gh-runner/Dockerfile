@@ -1,4 +1,4 @@
-ARG WINDOWS_VERSION=2022
+ARG WINDOWS_VERSION=2025
 ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64
 # GitHub Actions self-hosted runner on Windows nano server.
 # It has the docker CLI but no daemon. Run it with the host's docker pipe mounted, which needs process isolation:

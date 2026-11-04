@@ -1370,7 +1370,7 @@ int wmain(int argc, wchar_t **wargv)
     }
 
     opt.levels = (1 << 1) | (1 << 2) | (1 << 3);
-    opt.timeout_ms = 10000;
+    opt.timeout_ms = 30000;
     opt.target = env_or("APIPROBE_TARGET", "unknown");
     opt.winver = env_or("APIPROBE_WINDOWS_VERSION", "unknown");
     for (int i = 1; i < argc; i++) {

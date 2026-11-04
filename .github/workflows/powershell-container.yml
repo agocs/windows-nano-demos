@@ -1,3 +1,4 @@
+# Builds and tests windows-nano-powershell for every Windows version through the shared workflow (ADR 0009)
 name: PowerShell container
 
 on:
@@ -6,63 +7,18 @@ on:
     paths:
       - 'nano-server-powershell/**'
       - '.github/workflows/powershell-container.yml'
+      - '.github/workflows/build-windows-image.yml'
   pull_request:
     branches: [main]
     paths:
       - 'nano-server-powershell/**'
       - '.github/workflows/powershell-container.yml'
+      - '.github/workflows/build-windows-image.yml'
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
-  build-and-test:
-    # Self-hosted runner: never run fork PRs on it.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    # Nanoserver runner container using the host daemon's docker pipe. The workspace lives inside the
-    # runner container, so it is not bind-mounted into job containers; files go in via the build
-    # context or the command line.
-    runs-on: [self-hosted, windows, docker]
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        windows-version: ['2019', '2022', '2025']
-    env:
-      WINDOWS_VERSION: ${{ matrix.windows-version }}
-      IMAGE: windows-nano-powershell:ci-${{ matrix.windows-version }}-${{ github.sha }}
-    defaults:
-      run:
-        shell: pwsh
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build image
-        run: |
-          # Hyper-V isolated builds default to a 1 GB memory limit, which can hang the build.
-          docker build --pull --memory 4g --build-arg "WINDOWS_VERSION=${{ matrix.windows-version }}" -t "$env:IMAGE" nano-server-powershell
-          if ($LASTEXITCODE -ne 0) { throw "docker build failed ($LASTEXITCODE)" }
-          docker image ls "$env:IMAGE"
-
-      - name: Smoke test ($PSVersionTable, git, micro, Pester, PSScriptAnalyzer, platyPS)
-        run: |
-          # The script is passed as -EncodedCommand (base64 is safe through the cmd /S /C entrypoint).
-          $script = Get-Content -Raw -Path nano-server-powershell/tests/smoke.ps1
-          $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
-          docker run --rm "$env:IMAGE" pwsh -NoLogo -NoProfile -NonInteractive -OutputFormat Text -EncodedCommand $encoded
-          if ($LASTEXITCODE -ne 0) { throw "smoke test failed ($LASTEXITCODE)" }
-
-      - name: Default command is pwsh
-        run: |
-          $out = docker run --rm "$env:IMAGE" pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
-          if ($LASTEXITCODE -ne 0) { throw "pwsh failed ($LASTEXITCODE)" }
-          "pwsh $out"
-          $cmd = docker image inspect "$env:IMAGE" --format '{{json .Config.Cmd}}'
-          if ($cmd -ne '["pwsh"]') { throw "Unexpected default CMD: $cmd" }
-
-      - name: Remove image
-        if: always()
-        run: |
-          docker rmi --force "$env:IMAGE"
-          exit 0
+  build:
+    uses: ./.github/workflows/build-windows-image.yml
+    with:
+      context: nano-server-powershell
+      image: windows-nano-powershell

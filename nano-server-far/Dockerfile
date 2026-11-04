@@ -1,4 +1,4 @@
-ARG WINDOWS_VERSION=2022
+ARG WINDOWS_VERSION=2025
 # Far Manager can NOT run on nanoserver, so this image is based on servercore.
 # Far.exe statically imports desktop Win32 DLLs that nanoserver doesn't ship (WINSPOOL.DRV, COMDLG32,
 # SHELL32, SETUPAPI, IMM32, ...). On nanoserver ltsc2022 it exits with 0xC0000135 (STATUS_DLL_NOT_FOUND)

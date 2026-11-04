@@ -1,4 +1,4 @@
----
+# Builds and tests windows-nano-far for every Windows version through the shared workflow (ADR 0009)
 name: Far Manager container
 
 on:
@@ -7,77 +7,18 @@ on:
     paths:
       - 'nano-server-far/**'
       - '.github/workflows/far-manager.yml'
+      - '.github/workflows/build-windows-image.yml'
   pull_request:
     branches: [main]
     paths:
       - 'nano-server-far/**'
       - '.github/workflows/far-manager.yml'
+      - '.github/workflows/build-windows-image.yml'
   workflow_dispatch:
 
 jobs:
-  build-and-test:
-    # Only run for pushes, manual runs and PRs from this repo. PRs from forks would run untrusted code on the self-hosted runner.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, windows, docker]
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        windows-version: ['2019', '2022', '2025']
-    defaults:
-      run:
-        shell: pwsh
-    env:
-      IMAGE: windows-nano-far:${{ matrix.windows-version }}-${{ github.sha }}
-      TEST_CONTAINER: far-test-${{ matrix.windows-version }}-${{ github.run_id }}-${{ github.run_attempt }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build image (ltsc${{ matrix.windows-version }})
-        # build.cmd only wraps this command; there are no host DLLs to stage (Far links the CRT statically).
-        # Hyper-V isolated builds default to a 1 GB memory limit and can hang, so give them 4 GB.
-        working-directory: nano-server-far
-        run: |
-          docker build --memory 4g --build-arg WINDOWS_VERSION=${{ matrix.windows-version }} -t $env:IMAGE .
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Far loads (help output, no missing DLLs)
-        run: |
-          $out = docker run --rm --memory 2g $env:IMAGE "far.exe -?" 2>&1 | Out-String
-          $code = $LASTEXITCODE
-          Write-Output $out
-          # 0xC0000135 (-1073741515) is STATUS_DLL_NOT_FOUND
-          if ($code -ne 0) { Write-Error "far.exe -? exited with $code"; exit 1 }
-          if ($out -match '0xc0000135|unable to start correctly') { Write-Error 'missing DLL'; exit 1 }
-          if ($out -notmatch 'Far Manager') { Write-Error 'help text not found'; exit 1 }
-
-      - name: Far runs a macro and a command, then quits
-        # The runner is itself a container, so instead of bind-mounting the workspace we docker cp the
-        # test profile into a created (not yet started) container. -t gives Far a console.
-        run: |
-          docker create -t --memory 2g --name $env:TEST_CONTAINER $env:IMAGE "C:\Users\ContainerUser\far-test\run-test.cmd"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          docker cp nano-server-far/test "$($env:TEST_CONTAINER):C:\Users\ContainerUser\far-test"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          docker start $env:TEST_CONTAINER
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # Far is interactive, so if the macro doesn't quit it the container would hang forever.
-          $deadline = (Get-Date).AddMinutes(5)
-          while ((docker inspect -f '{{.State.Running}}' $env:TEST_CONTAINER) -eq 'true') {
-            if ((Get-Date) -gt $deadline) { docker logs $env:TEST_CONTAINER; Write-Error 'Far did not exit within 5 minutes'; exit 1 }
-            Start-Sleep -Seconds 2
-          }
-          $log = docker logs $env:TEST_CONTAINER 2>&1 | Out-String
-          $code = [int](docker inspect -f '{{.State.ExitCode}}' $env:TEST_CONTAINER)
-          # Far's screen output is full of console escape sequences; the results block is printed after Far exits.
-          $results = $log.Substring([Math]::Max(0, $log.IndexOf('===== far-test results =====')))
-          Write-Output ($results -replace "`e\[[0-9;?]*[A-Za-z]", '')
-          if ($code -ne 0) { Write-Error "run-test.cmd exited with $code"; exit 1 }
-          if ($log -notmatch 'PASS') { Write-Error 'PASS marker not found'; exit 1 }
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker rm -f $env:TEST_CONTAINER 2>&1 | Out-Null
-          docker rmi -f $env:IMAGE
-          exit 0
+  build:
+    uses: ./.github/workflows/build-windows-image.yml
+    with:
+      context: nano-server-far
+      image: windows-nano-far

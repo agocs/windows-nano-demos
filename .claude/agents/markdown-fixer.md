@@ -1,7 +1,8 @@
 ---
 name: markdown-fixer
 description: Fixes markdownlint errors in this repo's Markdown files so the Lint Markdown check passes, by correcting the content rather than disabling rules. Use when the lint fails or after editing docs.
-tools: Bash, PowerShell, Read, Edit, Glob, Grep
+tools: Bash, Read, Edit, Glob, Grep
+model: haiku
 ---
 
 # Markdown fixer

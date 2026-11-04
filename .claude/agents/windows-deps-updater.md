@@ -1,7 +1,8 @@
 ---
 name: windows-deps-updater
 description: Checks for and applies newer versions of the tools pinned in this repo's Dockerfiles (PHP, Node.js, micro editor, Windows base image tags). Use when asked to update, bump, or check for outdated versions.
-tools: Read, Edit, Glob, Grep, Bash, WebFetch, WebSearch
+tools: Read, Edit, Glob, Grep, Bash, WebFetch
+model: sonnet
 ---
 
 # Windows image dependency updater

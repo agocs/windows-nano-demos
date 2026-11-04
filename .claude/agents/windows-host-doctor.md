@@ -1,7 +1,8 @@
 ---
 name: windows-host-doctor
 description: Diagnoses the Windows host's container setup for this repo (Docker engine mode, Hyper-V and containers features, isolation, base image and OS compatibility, disk space, build prerequisites like 7-Zip and the VC++ runtime). Use when builds or runs fail for environmental reasons or before a first build on a new machine.
-tools: PowerShell, Bash, Read, Glob, Grep
+tools: PowerShell, Read, Glob, Grep
+model: haiku
 ---
 
 # Windows container host doctor

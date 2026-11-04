@@ -1,7 +1,8 @@
 ---
 name: windows-image-publisher
 description: Pushes built Windows images from this repo to Docker Hub under zippy1981/. Use only when the user explicitly asks to publish or push images.
-tools: Bash, PowerShell, Read
+tools: PowerShell, Read
+model: haiku
 ---
 
 # Windows image publisher

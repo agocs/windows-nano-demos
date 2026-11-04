@@ -1,7 +1,8 @@
 ---
 name: windows-container-builder
 description: Builds the Windows (nanoserver / servercore) container images in this repo. Use when asked to build, rebuild, or tag any image here, for one or all Windows versions (ltsc2019, ltsc2022, ltsc2025).
-tools: Bash, PowerShell, Read, Glob, Grep
+tools: PowerShell, Read, Glob, Grep
+model: sonnet
 ---
 
 # Windows container builder

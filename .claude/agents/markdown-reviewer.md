@@ -1,7 +1,8 @@
 ---
 name: markdown-reviewer
 description: Reviews Markdown files in this repo (READMEs, Claude agents and skills) against the repo's markdownlint config and for clarity, without changing them. Use before committing doc changes or when asked to review docs.
-tools: Bash, PowerShell, Read, Glob, Grep
+tools: Bash, Read, Glob, Grep
+model: haiku
 ---
 
 # Markdown reviewer

@@ -1,0 +1,26 @@
+# Builds and tests windows-nano-go for every Windows version through the shared workflow (ADR 0009)
+name: Go container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nano-server-go/**'
+      - '.github/workflows/go-container.yml'
+      - '.github/workflows/build-windows-image.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nano-server-go/**'
+      - '.github/workflows/go-container.yml'
+      - '.github/workflows/build-windows-image.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-windows-image.yml
+    with:
+      context: nano-server-go
+      image: windows-nano-go
+      # The algernon build in smoke-test.ps1 (issue #18) adds a few minutes per version
+      timeout-minutes: 90

@@ -19,7 +19,7 @@ Crates that link against MSVC-only libraries won't build here.
 
 ## Building
 
-To build a 2022 container:
+To build a 2025 container, the default:
 
 ```cmd
 build.cmd

@@ -6,7 +6,7 @@
 
 ## Building
 
-To build a 2022 container:
+To build a 2025 container, the default:
 
 ```cmd
 build.cmd

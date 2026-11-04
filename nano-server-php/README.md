@@ -20,7 +20,7 @@ The PHP build enables the `curl`, `fileinfo`, `openssl` and `zip` extensions. Th
 
 ## Building
 
-Images are built for Windows Server 2019, 2022 and 2025. `build.cmd` builds 2022 unless `WINDOWS_VERSION` is set:
+Images are built for Windows Server 2019, 2022 and 2025. `build.cmd` builds 2025 unless `WINDOWS_VERSION` is set:
 
 ```cmd
 build.cmd
@@ -42,7 +42,7 @@ build.cmd
 
 The Dockerfile takes two build arguments, and `build.cmd` passes both through when they're set:
 
-- `WINDOWS_VERSION`: `2019`, `2022` (default) or `2025`. It picks the nano server base and the Server Core image that supplies the Visual C++ runtime.
+- `WINDOWS_VERSION`: `2019`, `2022` or `2025` (default). It picks the nano server base and the Server Core image that supplies the Visual C++ runtime.
 - `BASE_IMAGE`: the nano server base image. It defaults to `mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64`.
 
 The Server Core build stage is only used during the build, but the first build for each Windows version downloads that Server Core image.

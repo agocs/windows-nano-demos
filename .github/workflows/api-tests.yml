@@ -107,8 +107,8 @@ jobs:
             if ($attempt -eq 1 -and $rc -ne 0 -and ($log -match 'hcs.*context deadline exceeded')) { Write-Host 'retrying'; continue }
             break
           }
-          New-Item -ItemType Directory -Force results | Out-Null
-          docker cp "$($env:CTR):C:\results\." results
+          Remove-Item -Recurse -Force results -ErrorAction SilentlyContinue
+          docker cp "$($env:CTR):C:\results" .
           Get-ChildItem results | Format-Table Name, Length | Out-String | Write-Host
           exit $rc
 

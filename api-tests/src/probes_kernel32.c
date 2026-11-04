@@ -97,7 +97,7 @@ static void p_GetFinalPathNameByHandleW(result_t *r)
 {
     NEED(K32, GetFinalPathNameByHandleW);
     wchar_t sys[MAX_PATH], out[MAX_PATH * 2];
-    sys32_path(L"kernel32.dll", sys, MAX_PATH);
+    self_path(sys, MAX_PATH);
     HANDLE h = CreateFileW(sys, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
     if (h == INVALID_HANDLE_VALUE) { fail(r, "CreateFileW"); return; }
     DWORD n = GetFinalPathNameByHandleW(h, out, MAX_PATH * 2, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);

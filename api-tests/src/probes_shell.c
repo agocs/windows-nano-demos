@@ -102,9 +102,9 @@ static void p_PathCombineW(result_t *r)
     NEEDT(SHL, StrStrIW_t, StrStrIW);
     wchar_t buf[MAX_PATH], sys[MAX_PATH];
     GetSystemDirectoryW(sys, MAX_PATH);
-    if (!PathCombineW(buf, sys, L"kernel32.dll")) { fail(r, "PathCombineW"); return; }
+    if (!PathCombineW(buf, sys, L"cmd.exe")) { fail(r, "PathCombineW"); return; }
     if (!PathFileExistsW(buf)) { fail(r, "PathFileExistsW"); return; }
-    if (!StrStrIW(buf, L"KERNEL32")) { fail_code(r, 0, "StrStrIW"); return; }
+    if (!StrStrIW(buf, L"CMD.EXE")) { fail_code(r, 0, "StrStrIW"); return; }
     ok(r, "PathCombineW, PathFileExistsW, StrStrIW");
 }
 

@@ -683,6 +683,8 @@ static status_t base_lookup(const char *key)
 static int verdict_for(status_t st, status_t base)
 {
     if (st == base) return st == ST_OK ? V_PASS : V_SKIP;
+    /* A skipped probe (no --network) is never a regression. */
+    if (st == ST_SKIP && base == ST_OK) return V_SKIP;
     return st > base ? V_FAIL : V_IMPROVED;
 }
 
@@ -1293,7 +1295,7 @@ static void write_baseline(const char *path)
     size_t n = 0;
     for (size_t i = 0; i < g_nrec; i++) {
         rec_t *r = &g_recs[i];
-        if (r->status == ST_OK) continue;
+        if (r->status == ST_OK || r->status == ST_SKIP) continue;
         if (r->level == 2 && !r->is_export) continue;
         char key[700];
         rec_key(r, key, sizeof key);

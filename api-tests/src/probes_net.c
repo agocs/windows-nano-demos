@@ -252,7 +252,7 @@ static void p_WinHttpCrackUrl(result_t *r)
     uc.dwHostNameLength = (DWORD)-1;
     uc.dwUrlPathLength = (DWORD)-1;
     if (!WinHttpCrackUrl(L"https://www.msftconnecttest.com:8443/connecttest.txt?x=1", 0, 0, &uc)) { fail(r, "WinHttpCrackUrl"); return; }
-    if (uc.nPort != 8443 || uc.dwHostNameLength != 22) { fail_code(r, 0, "wrong components"); return; }
+    if (uc.nPort != 8443 || uc.dwHostNameLength != 23) { fail_code(r, 0, "wrong components"); return; }
     ok(r, "WinHttpOpen and WinHttpCrackUrl");
 }
 

@@ -302,21 +302,21 @@ The self-hosted runner is a nanoserver container. `actions/download-artifact` ru
 
 ### Phase 1: tier 1 image on ltsc2022
 
-- [ ] Create `nano-server-wine-tools/` with `Dockerfile`, `build.cmd`, `README.md`, `.gitignore`, `tools.txt`, `extract-wine.sh`, `fetch-wine.ps1`, `scripts/Test-PeImports.ps1`, `tests/` and `licenses/`.
-- [ ] `extract-wine.sh` with the hash check, the unixlib refusal and the core-DLL deny list.
-- [ ] `fetch-wine.ps1` for local builds; `build.cmd` calls it if `wine-pe\` is empty.
-- [ ] `tests/run-tests.cmd` with tests 1 to 16.
-- [ ] Acceptance: `build.cmd` with `WINDOWS_VERSION=2022` builds; `docker run --rm windows-nano-wine-tools:2022 C:\tests\run-tests.cmd` exits 0; the build fails if one entry in `tools.txt` is replaced with `cmd.exe` (proves the import check works).
+- [x] Create `nano-server-wine-tools/` with `Dockerfile`, `build.cmd`, `README.md`, `.gitignore`, `tools.txt`, `extract-wine.sh`, `fetch-wine.ps1`, `scripts/Test-PeImports.ps1`, `tests/` and `licenses/`.
+- [x] `extract-wine.sh` with the hash check, the unixlib refusal and the core-DLL deny list.
+- [x] `fetch-wine.ps1` for local builds; `build.cmd` calls it if `wine-pe\` is empty.
+- [x] `tests/run-tests.cmd` with tests 1 to 16.
+- [x] Acceptance: `build.cmd` with `WINDOWS_VERSION=2022` builds; `docker run --rm windows-nano-wine-tools:2022 C:\tests\run-tests.cmd` exits 0; the build fails if one entry in `tools.txt` is replaced with `cmd.exe` (proves the import check works).
 
 ### Phase 2: CI and the other Windows versions
 
-- [ ] Add `.github/workflows/wine-tools-container.yml`.
-- [ ] Acceptance: `extract-wine` and all three matrix legs are green on the self-hosted runner, with TAP artifacts uploaded.
-- [ ] Retest `timeout` with `-t`. Try `cscript` with app-local `jscript.dll` and `vbscript.dll` registered by `regsvr32`, and record the result in the README.
+- [x] Add `.github/workflows/wine-tools-container.yml`.
+- [x] Acceptance: `extract-wine` and all three matrix legs are green on the self-hosted runner, with TAP artifacts uploaded.
+- [x] Retest `timeout` with `-t`. Try `cscript` with app-local `jscript.dll` and `vbscript.dll` registered by `regsvr32`, and record the result in the README.
 
 ### Phase 3: build from source
 
-- [ ] Add the option C job, which builds only the listed programs, and compare its import tables with option A's.
+- [x] Add the option C job, which builds only the listed programs, and compare its import tables with option A's.
 - [ ] Switch the image to option C if the imports match and the tests pass. Attach the build log to the release.
 - [ ] Acceptance: the image's `SOURCE.md` points at the exact tarball and the `configure` line that produced the binaries.
 
@@ -324,6 +324,22 @@ The self-hosted runner is a nanoserver container. `actions/download-artifact` ru
 
 - [ ] Release with `wine-11.0.tar.xz` and `SOURCE.md`. Push to Docker Hub only when the user asks.
 - [ ] Acceptance: the Docker Hub description names the Wine version and links the source release.
+
+## Implementation notes
+
+Implemented on branch `impl/wine-binaries` (PR #21). All five CI jobs are green: `extract-wine`, `build-from-source`, and `build-and-test` on ltsc2019, ltsc2022 and ltsc2025. The import check passes for all nine tools on all three bases, and `run-tests.cmd` reports 27 of 27 checks passing on each. Deviations from the plan:
+
+- **`SOURCE.md` location:** it is `nano-server-wine-tools/SOURCE.md`, not `licenses/SOURCE.md`. `licenses/` also holds Wine's `LICENSE` file next to `COPYING.LIB` and `AUTHORS`. All four are copied into `C:\Program Files\wine-tools\`. Their hashes match the files in `wine-11.0.tar.xz`, and the tarball's SHA-256 (`c07a6857933c1fc60dff5448d79f39c92481c1e9db5aa628db9d0358446e0701`) is recorded in `SOURCE.md`.
+- **No release or source mirror:** no GitHub release was created. `SOURCE.md` points at the WineHQ tarball and says that a mirror is still needed before the image is published. Phase 4 is still open.
+- **Artifact name:** `wine-pe-11.0` in both jobs (the plan's YAML used `wine-pe`).
+- **Test step:** the TAP comes from `docker run --rm` stdout. It is printed in the log and saved as `results-<version>.tap` for the artifact, with no `docker cp`. Builds and test runs are retried once on `hcs ... context deadline exceeded`. Builds use `--memory 4g` and the job has `timeout-minutes: 60`. `pull_request` is not limited to `main`, so PRs into plan branches are built.
+- **Check stage user:** pwsh is unpacked under `C:\Users\ContainerUser` and the check runs as the default `ContainerUser`, not `ContainerAdministrator`. The final stage creates `C:\work` as `ContainerAdministrator` and grants `ContainerUser` write access to `C:\work` and `C:\tests`.
+- **Test 8:** Wine's `whoami` ends its line with a bare LF, and `findstr`'s `$` only matches before a CR, so the regex is `\\ContainerUser` with no `$`.
+- **Test 12 and `start.exe`:** `cmd` parses `start.exe ...` as its built-in `start` followed by `.exe`, which fails with `The system cannot find the file .exe.` (exit code 9059). Wine's `start.exe` works on all three bases when it is called by its full path, `"C:\Program Files\wine-tools\start.exe"`. Tests 12 and 15 call the tools by full path, and the README documents this.
+- **Tests 2, 3 and 12** (not run in the prototype) all pass on Wine 11.0.
+- **Acceptance check for the import check:** replacing `find.exe` with Wine's `cmd.exe` in the build context fails the `check` stage with `FAIL cmd.exe: 1 unresolved import(s): kernel32.dll!VerifyConsoleIoHandle`. This was run locally on ltsc2022, not in CI.
+- **Phase 2 experiments (ltsc2022):** `timeout.exe` works with `docker run -t` and prints `ERROR: not possible to redirect input` without a console. `cscript.exe` with app-local `jscript.dll`, `vbscript.dll` and `scrrun.dll`: all their imports resolve, but `regsvr32` fails (`DllRegisterServer` returns `0x80004002`). With the COM keys and the `.js` association added by hand, `cscript` still prints `Could not create script engine`. Neither tool is shipped. The README records both results.
+- **Phase 3:** the `build-from-source` job (`build-wine-from-source.sh`, `compare-imports.sh`) builds the nine programs from `wine-11.0.tar.xz` on `ubuntu-24.04` in about a minute. Their import tables match the WineHQ binaries entry for entry. `find`, `fc`, `where`, `whoami` and `cabarc` are also the same size, while `start`, `tasklist`, `taskkill` and `fsutil` are smaller than the WineHQ builds. The job is informational: the image still uses the WineHQ binaries (option A), so the switch to option C is left open.
 
 ## Prototype results
 

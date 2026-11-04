@@ -1,0 +1,68 @@
+name: Go container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nano-server-go/**'
+      - '.github/workflows/go-container.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nano-server-go/**'
+      - '.github/workflows/go-container.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    # Never run fork pull requests on the self-hosted machine.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, windows, docker]
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        windows-version: ['2019', '2022', '2025']
+    env:
+      IMAGE: windows-nano-go:${{ matrix.windows-version }}-ci-${{ github.sha }}
+      HELLO_IMAGE: windows-nano-go-hello:${{ matrix.windows-version }}-ci-${{ github.sha }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ltsc${{ matrix.windows-version }} image
+        run: |
+          docker build --memory 4g --build-arg WINDOWS_VERSION=${{ matrix.windows-version }} -t $env:IMAGE nano-server-go
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # nanoserver has no where.exe, so run each tool to prove it is on PATH.
+      - name: Smoke test tools
+        run: |
+          docker run --rm $env:IMAGE "go version && go env GOPATH CGO_ENABLED && git --version && micro -version"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # The runner is itself a container, so the workspace can't be bind-mounted.
+      # Build the hello world module in an image layer from a Dockerfile on stdin instead.
+      - name: Build and run hello world module
+        run: |
+          $dockerfile = @'
+          FROM __IMAGE__
+          WORKDIR C:/users/containeruser/hello
+          RUN echo package main> main.go && echo import "fmt">> main.go && echo func main() { fmt.Println("hello from go") }>> main.go && go mod init hello && go build -o hello.exe . && hello.exe
+          CMD ["go run ."]
+          '@
+          $dockerfile.Replace('__IMAGE__', $env:IMAGE) | docker build --memory 4g -t $env:HELLO_IMAGE -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $out = docker run --rm $env:HELLO_IMAGE
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $out
+          if ($out -notmatch 'hello from go') { throw "unexpected output: $out" }
+
+      - name: Remove images
+        if: always()
+        run: |
+          docker rmi -f $env:HELLO_IMAGE 2>$null
+          docker rmi -f $env:IMAGE 2>$null
+          exit 0

@@ -1,0 +1,65 @@
+name: SSH server container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nano-server-ssh/**'
+      - '.github/workflows/ssh-server.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nano-server-ssh/**'
+      - '.github/workflows/ssh-server.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    # Self-hosted runners must never run code from forks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, windows, docker]
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        windows-version: ['2019', '2022', '2025']
+        include:
+          # On nanoserver ltsc2025, LSA rejects every local-account logon
+          # (LsaLogonUser S4U -> 0xC00000DF STATUS_NO_SUCH_DOMAIN, LogonUser ->
+          # error 1355), so 2025 uses servercore as the base. See the README.
+          - windows-version: '2025'
+            base-image: mcr.microsoft.com/windows/servercore:ltsc2025-amd64
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      IMAGE: windows-nano-ssh:ci-${{ matrix.windows-version }}-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The runner is itself a container talking to the host daemon, so the
+      # build context is sent over the API (no bind mounts are used anywhere).
+      - name: Build image
+        working-directory: nano-server-ssh
+        env:
+          BASE_IMAGE: ${{ matrix.base-image }}
+        run: |
+          $buildArgs = @('--build-arg', 'WINDOWS_VERSION=${{ matrix.windows-version }}')
+          if ($env:BASE_IMAGE) { $buildArgs += @('--build-arg', "BASE_IMAGE=$env:BASE_IMAGE") }
+          docker build --memory 4g @buildArgs -t "$env:IMAGE" .
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      # Starts the server and a second container of the same image as the
+      # SSH client; both are reached over the nat network by IP.
+      - name: Test normal user (password and key in %USERPROFILE%)
+        run: ./nano-server-ssh/test.ps1 -Image "$env:IMAGE"
+
+      - name: Test administrator (key only, administrators_authorized_keys)
+        run: ./nano-server-ssh/test.ps1 -Image "$env:IMAGE" -Admin -KeyOnly
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker ps -a --filter "ancestor=$env:IMAGE" -q | ForEach-Object { docker rm -f $_ }
+          docker rmi -f "$env:IMAGE"
+          exit 0

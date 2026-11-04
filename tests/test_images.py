@@ -6,8 +6,12 @@ import re
 from pathlib import Path
 
 import pytest
-
-from repo_conventions import BASE_IMAGE_ARG, DEFAULT_WINDOWS_VERSION, dockerfile_lines, image_dirs
+from repo_conventions import (
+    BASE_IMAGE_ARG,
+    DEFAULT_WINDOWS_VERSION,
+    dockerfile_lines,
+    image_dirs,
+)
 
 IMAGES = image_dirs()
 
@@ -62,14 +66,14 @@ class TestBuildScript:
         return path.read_text(encoding="utf-8")
 
     def test_defaults_windows_version_to_2025(self, image_dir: Path) -> None:
-        assert re.search(rf'set "?WINDOWS_VERSION={DEFAULT_WINDOWS_VERSION}"?', self._script(image_dir), re.IGNORECASE), (
-            f"{image_dir.name}/build.cmd must default WINDOWS_VERSION to {DEFAULT_WINDOWS_VERSION}"
-        )
+        assert re.search(
+            rf'set "?WINDOWS_VERSION={DEFAULT_WINDOWS_VERSION}"?', self._script(image_dir), re.IGNORECASE
+        ), f"{image_dir.name}/build.cmd must default WINDOWS_VERSION to {DEFAULT_WINDOWS_VERSION}"
 
     def test_passes_the_version_to_docker(self, image_dir: Path) -> None:
-        assert re.search(r'--build-arg "?WINDOWS_VERSION=%WINDOWS_VERSION%"?', self._script(image_dir), re.IGNORECASE), (
-            f"{image_dir.name}/build.cmd must pass --build-arg WINDOWS_VERSION=%WINDOWS_VERSION%"
-        )
+        assert re.search(
+            r'--build-arg "?WINDOWS_VERSION=%WINDOWS_VERSION%"?', self._script(image_dir), re.IGNORECASE
+        ), f"{image_dir.name}/build.cmd must pass --build-arg WINDOWS_VERSION=%WINDOWS_VERSION%"
 
     def test_forwards_base_image(self, image_dir: Path) -> None:
         assert re.search(r'--build-arg "?BASE_IMAGE=%BASE_IMAGE%"?', self._script(image_dir), re.IGNORECASE), (

@@ -27,3 +27,8 @@ jobs:
 
       - name: Test
         run: uv run pytest -v
+
+      - name: Lint Python
+        run: |
+          uv run --with ruff ruff check .
+          uv run --with ruff ruff format --check .

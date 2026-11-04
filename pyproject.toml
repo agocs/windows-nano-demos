@@ -20,5 +20,8 @@ package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["tests"]
+pythonpath = ["tests", "scripts"]
 addopts = "-ra"
+
+[tool.ruff]
+line-length = 120

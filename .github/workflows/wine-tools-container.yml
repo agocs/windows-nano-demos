@@ -1,0 +1,133 @@
+---
+name: Wine tools container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nano-server-wine-tools/**'
+      - '.github/workflows/wine-tools-container.yml'
+  # Not limited to main, so PRs into plan branches are built too.
+  pull_request:
+    paths:
+      - 'nano-server-wine-tools/**'
+      - '.github/workflows/wine-tools-container.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extract-wine:
+    # Option A in plans/wine-binaries.md: pull the PE programs out of WineHQ's .deb with dpkg-deb.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Wine PE programs
+        run: bash nano-server-wine-tools/extract-wine.sh out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wine-pe-11.0
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
+
+  build-from-source:
+    # Option C in plans/wine-binaries.md, informational only: build the same programs from the
+    # wine-11.0 tarball and compare their import tables with the WineHQ binaries. The image still
+    # uses the WineHQ binaries (option A).
+    needs: extract-wine
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wine-pe-11.0
+          path: out
+
+      - name: Install the cross compiler
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q gcc gcc-mingw-w64-x86-64 make flex bison perl curl xz-utils binutils-mingw-w64-x86-64
+
+      - name: Build the listed programs from source
+        run: bash nano-server-wine-tools/build-wine-from-source.sh out-src
+
+      - name: Compare import tables with the WineHQ binaries
+        run: bash nano-server-wine-tools/compare-imports.sh out out-src | tee out-src/compare-imports.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wine-pe-11.0-from-source
+          path: out-src/
+          if-no-files-found: warn
+          retention-days: 7
+
+  build-and-test:
+    needs: extract-wine
+    # Only run for pushes, manual runs and PRs from this repo. PRs from forks would run untrusted code on the self-hosted runner.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Nanoserver runner container using the host daemon's docker pipe. The workspace is not bind-mounted
+    # into job containers, so the PE files reach the build through the build context.
+    runs-on: [self-hosted, windows, docker]
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        windows-version: ['2019', '2022', '2025']
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      IMAGE: windows-nano-wine-tools:${{ matrix.windows-version }}-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wine-pe-11.0
+          path: nano-server-wine-tools/wine-pe
+
+      - name: Build image (ltsc${{ matrix.windows-version }}), including the import check
+        working-directory: nano-server-wine-tools
+        run: |
+          Get-ChildItem wine-pe | Format-Table Name, Length -AutoSize
+          # Hyper-V isolation sometimes fails to start a build container in time. Retry that once.
+          for ($i = 1; $i -le 2; $i++) {
+            docker build --memory 4g --build-arg WINDOWS_VERSION=${{ matrix.windows-version }} -t $env:IMAGE . 2>&1 | Tee-Object -Variable log
+            $rc = $LASTEXITCODE
+            if ($rc -eq 0) { break }
+            if ($i -eq 1 -and ($log -join "`n") -match 'hcs.*context deadline exceeded') { Write-Warning 'hcs timeout, retrying the build once'; continue }
+            exit $rc
+          }
+
+      - name: Run the baked-in tests
+        run: |
+          for ($i = 1; $i -le 2; $i++) {
+            $tap = docker run --rm $env:IMAGE "C:\tests\run-tests.cmd" 2>&1
+            $rc = $LASTEXITCODE
+            if ($i -eq 1 -and $rc -ne 0 -and ($tap -join "`n") -match 'hcs.*context deadline exceeded') { Write-Warning 'hcs timeout, retrying once'; continue }
+            break
+          }
+          $tap | Set-Content -Encoding utf8 "results-${{ matrix.windows-version }}.tap"
+          $tap | Write-Output
+          if ($rc -ne 0) { Write-Error "run-tests.cmd exited with $rc (number of failures)"; exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wine-tools-tap-${{ matrix.windows-version }}
+          path: results-${{ matrix.windows-version }}.tap
+          if-no-files-found: warn
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rmi -f $env:IMAGE
+          exit 0

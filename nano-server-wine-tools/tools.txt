@@ -1,0 +1,12 @@
+# Wine x86_64 PE programs copied into the image, one file name per line.
+# Read by extract-wine.sh (CI) and fetch-wine.ps1 (local builds).
+# Only tools nanoserver lacks. Never core DLLs, never a module with a unixlib.
+find.exe
+fc.exe
+where.exe
+whoami.exe
+tasklist.exe
+taskkill.exe
+start.exe
+cabarc.exe
+fsutil.exe

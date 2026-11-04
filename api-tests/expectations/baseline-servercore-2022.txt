@@ -1,0 +1,30 @@
+# apiprobe baseline: servercore 2022 (os_build 20348.5773)
+# One line per probe that is not expected to be ok; unlisted probes are expected ok.
+# Regenerate with: apiprobe.exe --level all --write-baseline <file> (see api-tests/README.md)
+L1 appxdeploymentextensions.desktop = missing-dll
+L1 computestorage = missing-dll
+L1 devicengccredprov = missing-dll
+L1 ducsps = missing-dll
+L1 hvloader = missing-dll
+L1 l2nacp = missing-dll
+L1 mprdim = missing-dll
+L1 omadmagent = missing-dll
+L1 simauth = missing-dll
+L1 spwizeng = missing-dll
+L1 tcbloader = missing-dll
+L1 tssrvlic = missing-dll
+L1 userdeviceregistration.ngc = missing-dll
+L1 uxlib = missing-dll
+L1 vertdll = missing-dll
+L1 winhvplatform = missing-dll
+L2 feclient!EfsUtilGetCurrentKey = missing-export
+L2 gdi32!DeviceCapabilitiesExW = missing-export
+L2 shlwapi!SHCreateStreamWrapper = missing-export
+L2 shlwapi!SHDeleteOrphanKeyA = missing-export
+L2 shlwapi!SHDeleteOrphanKeyW = missing-export
+L3 avrt.AvSetMmThreadCharacteristicsW = missing-dll
+L3 kernel32.GetDynamicTimeZoneInformation = error
+L3 msvcp140.load = missing-dll
+L3 msvcrt.setlocale = error
+L3 opengl32.wglCreateContext = missing-dll
+L3 vcruntime140.load = missing-dll

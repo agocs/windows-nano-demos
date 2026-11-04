@@ -1,7 +1,8 @@
 ---
 name: windows-container-tester
 description: Smoke-tests built Windows container images in this repo by running the tools inside them (php, node, npm, composer, laravel, vite, micro). Use after a build or when asked whether an image works.
-tools: Bash, PowerShell, Read, Glob, Grep
+tools: PowerShell, Read, Glob, Grep
+model: sonnet
 ---
 
 # Windows container tester

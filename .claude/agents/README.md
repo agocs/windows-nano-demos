@@ -1,0 +1,56 @@
+# Claude Code agents
+
+This folder holds the [Claude Code subagents](https://docs.claude.com/en/docs/claude-code/sub-agents) for this repo. Each file's YAML front matter sets the agent's `name`, `description`, `tools`, and `model`. The body is its system prompt.
+
+## Agents
+
+| Agent | Purpose | Model | Tools |
+| --- | --- | --- | --- |
+| `planning` | Writes plans in `plans/` and names the agent that owns each step. Writes only under `plans/`. | haiku | Read, Glob, Grep, Write, Edit, Agent |
+| `adr` | Writes MADR-style decision records in `docs/adr/` and keeps the index. Writes only under `docs/adr/`. | sonnet | Read, Glob, Grep, Write, Edit |
+| `governance` | Read-only audit of agents, images, workflows, plans, ADRs, and docs. Returns a ranked gap report. | opus | Read, Glob, Grep |
+| `cicd-engineer` | Designs the CI/CD system: runner fleet and image, matrices, schedules, publishing, cleanup, secrets. | opus | Read, Glob, Grep, Write, Edit, Bash, PowerShell, WebFetch |
+| `workflow-author` | Writes GitHub Actions YAML to the repo's conventions and checks it with actionlint. | sonnet | Read, Glob, Grep, Write, Edit, Bash |
+| `container-author` | Writes and edits Dockerfiles and `build.cmd` for existing image folders. | sonnet | Read, Glob, Grep, Write, Edit, WebFetch |
+| `windows-demo-scaffolder` | Creates a whole new `nano-server-<stack>/` demo folder and wires it into the root README. | sonnet | Read, Write, Edit, Glob, Grep, Bash, WebFetch |
+| `powershell-author` | Writes PowerShell 7 scripts and modules with Pester tests, clean under PSScriptAnalyzer. | sonnet | Read, Glob, Grep, Write, Edit, PowerShell |
+| `python-author` | Writes Python 3 tools with type hints and pytest tests, clean under ruff. | sonnet | Read, Glob, Grep, Write, Edit, Bash |
+| `windows-container-builder` | Builds and tags images for ltsc2019, ltsc2022, and ltsc2025. | sonnet | PowerShell, Read, Glob, Grep |
+| `windows-container-tester` | Smoke-tests built images by running their tools. | sonnet | PowerShell, Read, Glob, Grep |
+| `windows-deps-updater` | Finds and applies newer tool versions pinned in Dockerfiles. | sonnet | Read, Edit, Glob, Grep, Bash, WebFetch |
+| `windows-dockerfile-reviewer` | Read-only review of Dockerfiles and build scripts for nanoserver pitfalls. | opus | Read, Glob, Grep |
+| `windows-host-doctor` | Diagnoses the host's container setup when builds fail for environmental reasons. | haiku | PowerShell, Read, Glob, Grep |
+| `windows-image-publisher` | Pushes images to Docker Hub, only when explicitly asked. | haiku | PowerShell, Read |
+| `markdown-reviewer` | Read-only review of Markdown against the lint config. | haiku | Bash, Read, Glob, Grep |
+| `markdown-fixer` | Fixes markdownlint errors by editing content. | haiku | Bash, Read, Edit, Glob, Grep |
+
+## How models were chosen
+
+- **haiku** for cheap, mechanical, or read-mostly work with a fixed procedure: running lint and fixing what it says, host diagnostics, a guarded `docker push`, and `planning`. Planning is haiku because it fills in a fixed template and hands real work to other agents. If its plans come out thin for a large design, ask `cicd-engineer` to draft the design and have `planning` turn it into a checklist.
+- **sonnet** for authoring and building: writing Dockerfiles, workflows, scripts, ADRs, and running builds and tests, where correctness matters but each task is bounded.
+- **opus** for deep review and design, where missing something is expensive: `governance` (cross-cutting audit), `windows-dockerfile-reviewer` (subtle nanoserver failures), and `cicd-engineer` (security of self-hosted runners and the shape of the whole pipeline).
+
+## How tools were chosen
+
+- Reviewers and auditors (`governance`, `windows-dockerfile-reviewer`) have no shell and no write tools, so they can't change anything. `markdown-reviewer` keeps Bash only to run markdownlint.
+- Agents that drive docker on Windows get PowerShell only, not both shells.
+- `planning` and `adr` can write, but their prompts restrict them to `plans/` and `docs/adr/`. That is enforced by the prompt, not by Claude Code, so `governance` checks it.
+
+## Container work: who does what
+
+`windows-demo-scaffolder` creates a new demo folder end to end, including its first Dockerfile. After that, `container-author` owns Dockerfile changes, `workflow-author` owns the folder's workflow, and `windows-dockerfile-reviewer` reviews. They stay separate because scaffolding (folder layout, README, root README entry) is a one-time job, while Dockerfile edits happen every month.
+
+## Delegation
+
+```text
+planning ──► container-author, windows-demo-scaffolder, workflow-author, cicd-engineer,
+             powershell-author, python-author, windows-deps-updater, adr, ...
+cicd-engineer ──► design for workflow-author; scripts for powershell-author
+windows-demo-scaffolder / container-author / windows-deps-updater
+             ──► windows-dockerfile-reviewer ──► windows-container-builder ──► windows-container-tester
+                 ──► windows-image-publisher (only when the user asks)
+markdown-reviewer ──► markdown-fixer
+governance ──► report only (the caller dispatches fixes)
+```
+
+`planning` is the only agent with the Agent tool. Claude Code subagents can't start other subagents, so when `planning` runs as a subagent it returns the plan with an owner on every task, and the main conversation dispatches them. Every other hand-off is a recommendation in the agent's report.

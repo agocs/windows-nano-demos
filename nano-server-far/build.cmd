@@ -1,6 +1,6 @@
 @echo off
 setlocal
-if "%WINDOWS_VERSION%"=="" set WINDOWS_VERSION=2022
+if "%WINDOWS_VERSION%"=="" set WINDOWS_VERSION=2025
 rem Far Manager statically links the VC runtime, so unlike nano-server-php there are no host DLLs to stage into system32.
 rem The .7z is extracted with a downloaded 7zr.exe inside the build instead of with a host copy of 7z.exe.
 set BASE_IMAGE_ARG=

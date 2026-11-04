@@ -12,7 +12,7 @@ Will be available at <https://hub.docker.com/r/zippy1981/windows-nano-go>.
 
 ## Building
 
-To build a 2022 container:
+To build a 2025 container, the default:
 
 ```cmd
 build.cmd

@@ -67,9 +67,11 @@ class TestBuildScript:
         )
 
     def test_passes_the_version_to_docker(self, image_dir: Path) -> None:
-        assert "--build-arg WINDOWS_VERSION=%WINDOWS_VERSION%" in self._script(image_dir)
+        assert re.search(r'--build-arg "?WINDOWS_VERSION=%WINDOWS_VERSION%"?', self._script(image_dir), re.IGNORECASE), (
+            f"{image_dir.name}/build.cmd must pass --build-arg WINDOWS_VERSION=%WINDOWS_VERSION%"
+        )
 
     def test_forwards_base_image(self, image_dir: Path) -> None:
-        assert "--build-arg BASE_IMAGE=%BASE_IMAGE%" in self._script(image_dir), (
+        assert re.search(r'--build-arg "?BASE_IMAGE=%BASE_IMAGE%"?', self._script(image_dir), re.IGNORECASE), (
             f"{image_dir.name}/build.cmd must pass BASE_IMAGE through when it's set"
         )

@@ -8,4 +8,4 @@ rem so 2025 defaults to servercore. See README.md.
 if "%BASE_IMAGE%"=="" if "%WINDOWS_VERSION%"=="2025" set BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2025-amd64
 set BASE_IMAGE_ARG=
 if not "%BASE_IMAGE%"=="" set BASE_IMAGE_ARG=--build-arg BASE_IMAGE=%BASE_IMAGE%
-docker build --build-arg WINDOWS_VERSION=%WINDOWS_VERSION% %BASE_IMAGE_ARG% -t windows-nano-ssh:%WINDOWS_VERSION% -t zippy1981/windows-nano-ssh:%WINDOWS_VERSION% .
+docker build --memory 4g --build-arg WINDOWS_VERSION=%WINDOWS_VERSION% %BASE_IMAGE_ARG% -t windows-nano-ssh:%WINDOWS_VERSION% -t zippy1981/windows-nano-ssh:%WINDOWS_VERSION% .

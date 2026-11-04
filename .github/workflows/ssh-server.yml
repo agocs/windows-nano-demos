@@ -18,7 +18,7 @@ jobs:
     # Self-hosted runners must never run code from forks.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, windows, docker]
-    timeout-minutes: 90
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +46,7 @@ jobs:
         run: |
           $buildArgs = @('--build-arg', 'WINDOWS_VERSION=${{ matrix.windows-version }}')
           if ($env:BASE_IMAGE) { $buildArgs += @('--build-arg', "BASE_IMAGE=$env:BASE_IMAGE") }
-          docker build @buildArgs -t "$env:IMAGE" .
+          docker build --memory 4g @buildArgs -t "$env:IMAGE" .
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
       # Starts the server and a second container of the same image as the

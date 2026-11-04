@@ -20,7 +20,7 @@ Within a day of Microsoft publishing new nanoserver base images after Patch Tues
 4. **Pin the base by digest during the build.** Detection passes `BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc<ver>-amd64@sha256:<digest>`, so the image built is exactly the one detected, even if MCR moves the tag mid-run.
 5. **Tags:** `:<ver>` (moving), `:<ver>-<os-build>` such as `:2022-10.0.20348.2849` (moving within an OS build), `:<ver>-YYYY-MM` (moving within a month), and `:<ver>-<os-build>-<git-sha7>` (immutable). Local builds keep `windows-nano-<x>:<ver>`. ADR: [0005 Tagging scheme for Windows images](../docs/adr/0005-tagging-scheme-for-windows-images.md).
 6. **Build, test, and push in one job** on one runner, so the image pushed is the image tested on the same daemon. A failed smoke test skips the push for that leg only (`fail-fast: false`).
-7. **Publish only from `main`, only from the refresh workflow** (scheduled or `workflow_dispatch` on `main`), with secrets in a `dockerhub` environment restricted to `main`. Per-image push and PR workflows build and test only. A merged tool bump is published by the next refresh run, which also rebuilds when the image folder's latest commit differs from the published image's `org.opencontainers.image.revision` label. ADR: [0006 Publish to Docker Hub only from main via scheduled workflow](../docs/adr/0006-publish-to-docker-hub-only-from-main-via-scheduled-workflow.md).
+7. **Publish only from `main`, only from the refresh workflow** (scheduled or `workflow_dispatch` on `main`), with secrets in a `Docker Hub zippy1981` environment restricted to `main`. Per-image push and PR workflows build and test only. A merged tool bump is published by the next refresh run, which also rebuilds when the image folder's latest commit differs from the published image's `org.opencontainers.image.revision` label. ADR: [0006 Publish to Docker Hub only from main via scheduled workflow](../docs/adr/0006-publish-to-docker-hub-only-from-main-via-scheduled-workflow.md).
 8. **Tool-version bumps are separate from base refreshes.** They arrive as reviewed PRs from `windows-deps-updater` and never in the same run as a base refresh, so a broken image can be blamed on one cause. ADR: [0007 Separate tool-version bumps from base-image refreshes](../docs/adr/0007-separate-tool-version-bumps-from-base-image-refreshes.md).
 9. **Runner self-update from the host, not from a job.** A job can't safely replace the runner it is running on. A host scheduled task pulls the new runner image and recreates idle runner containers one at a time. The existing runner model is recorded in [0003 Self-hosted nanoserver runners using the host docker daemon via named pipe](../docs/adr/0003-self-hosted-nanoserver-runners-using-host-docker-daemon-via-named-pipe.md), and the version matrix in [0002 Build every image for ltsc2019, ltsc2022, and ltsc2025](../docs/adr/0002-build-every-image-for-ltsc2019-ltsc2022-and-ltsc2025.md).
 10. **Scripts in PowerShell 7** under `scripts/`, because `pwsh` exists both on `ubuntu-latest` and in the runner image. Python is used only for the `ubuntu-latest` summary and pin-report tools.
@@ -49,7 +49,7 @@ Within a day of Microsoft publishing new nanoserver base images after Patch Tues
 
 ### Phase 3: Rebuild, gate, publish
 
-- [ ] **cicd-engineer**: Create the `dockerhub` environment restricted to `main`, holding `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (a Docker Hub access token scoped to `zippy1981/windows-nano-*`, read/write). Accept: a run from a non-main branch can't read the secrets.
+- [ ] **cicd-engineer**: Create the `Docker Hub zippy1981` environment restricted to `main`, holding `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (a Docker Hub access token scoped to `zippy1981/windows-nano-*`, read/write). Accept: a run from a non-main branch can't read the secrets.
 - [x] **workflow-author**: Add a `refresh` job to `image-refresh.yml`: `needs: detect`, `if: needs.detect.outputs.matrix != '[]'`, `strategy.matrix: ${{ fromJSON(needs.detect.outputs.matrix) }}`, `fail-fast: false`, `concurrency: refresh-${{ matrix.image }}-${{ matrix.windows-version }}`, the fork guard, and a call to `build-image.yml` with `publish: ${{ github.ref == 'refs/heads/main' }}`. The push step uses a per-job `DOCKER_CONFIG` directory, `docker login --password-stdin`, pushes the four tags from ADR 0005, then runs `docker logout` and deletes the directory in an `if: always()` step. Accept: a forced dispatch on `main` publishes all six image and version legs with all four tags, and a dispatch on a branch builds and tests without pushing.
 - [ ] **windows-container-tester**: Check the first published set by pulling each tag and running the smoke tests. Accept: every pulled `:<ver>` tag reports the new OS build in `docker image inspect --format '{{.OsVersion}}'`.
 - [ ] **container-author**: Add a "Tags" section to each image README describing ADR 0005's tags. Accept: markdownlint passes.
@@ -74,7 +74,7 @@ Within a day of Microsoft publishing new nanoserver base images after Patch Tues
 
 ### Phase 7: Governance and docs
 
-- [ ] **governance**: Audit after Phases 1 to 5 land: fork guards on every self-hosted job, secrets only in the `dockerhub` environment, ADRs 0004 to 0007 reflected in workflows, all six legs present. Accept: no high-severity gaps.
+- [ ] **governance**: Audit after Phases 1 to 5 land: fork guards on every self-hosted job, secrets only in the `Docker Hub zippy1981` environment, ADRs 0004 to 0007 reflected in workflows, all six legs present. Accept: no high-severity gaps.
 - [ ] **adr**: Move ADRs 0004 to 0007 from Proposed to Accepted once their work lands, or supersede them if the design changed. Accept: index statuses match.
 - [ ] **markdown-reviewer**: Review all new and changed Markdown. Accept: lint clean, with no stale paths.
 
@@ -86,15 +86,15 @@ Phases 0 to 4 are implemented, except the staleness check. The code differs from
   - a `windows-versions` input (a JSON list defaulting to all three), so a refresh builds only the versions that changed
   - a `publish` input
   - optional `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets
-  - `environment: dockerhub`, set only when publishing from main
+  - `environment: Docker Hub zippy1981`, set only when publishing from main
 - **Labels.** Every build sets `org.opencontainers.image.revision`, `.source`, `.created` and `.title`. `.base.name` and `.base.digest` are set when the base is passed in, which a refresh always does, pinned by digest. `com.zippy1981.servercore.digest` is not implemented: a servercore helper stage pulls by tag, and changes to it are covered by `--force` dispatches.
 - **Detection is Python, not PowerShell.** `Get-BaseImageInfo.ps1`, `Get-RefreshMatrix.ps1` and `refresh_summary.py` became one script, `scripts/refresh_matrix.py`. It has to read each image's caller workflow YAML to find its `base-image-overrides`, and the repo already has PyYAML, uv and pytest (ADR 0010). pwsh has no YAML parser without a third-party module. The script reads MCR and Docker Hub over their anonymous registry APIs rather than `docker manifest inspect`, so the detect job needs no docker. It is tested offline in `tests/test_refresh_matrix.py`.
 - **source-changed** compares the published image's revision label with the folder's history (`git log <revision>..HEAD -- <folder>`), rather than comparing the folder's last commit hash. The revision label is the commit the image was built from, not the folder's last commit. A revision missing from history also counts as changed.
 - **KB numbers** aren't in the summary yet. It lists the base OS build for each leg.
 - **Notify** runs only for `main`, so branch dispatches don't open issues.
-- **Convention tests** now also check that only the shared workflow and `image-refresh.yml` reference the Docker Hub secrets, that publishing requires `inputs.publish`, main and the `dockerhub` environment, that image workflows always build every version, that builds set the labels detection reads, and that `image-refresh.yml` has no pull request triggers.
+- **Convention tests** now also check that only the shared workflow and `image-refresh.yml` reference the Docker Hub secrets, that publishing requires `inputs.publish`, main and the `Docker Hub zippy1981` environment, that image workflows always build every version, that builds set the labels detection reads, and that `image-refresh.yml` has no pull request triggers.
 
-Still to do before the first publish: create the `dockerhub` environment restricted to `main`, with `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (Phase 3, cicd-engineer). This is a user action, because it needs a Docker Hub access token. Without it, the publish step fails with a clear message and the notify job opens an issue.
+The `Docker Hub zippy1981` environment exists, with `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. Still to do: restrict its deployment branches to `main`, so a workflow pushed on another branch can't name the environment and read the token. The workflows only select it from main, but that alone doesn't protect the secret.
 
 ## Risks
 
@@ -116,7 +116,7 @@ Still to do before the first publish: create the `dockerhub` environment restric
 | `container-author` | PHP Dockerfile conversion, README "Tags" sections |
 | `windows-dockerfile-reviewer` | Review of Dockerfile changes |
 | `windows-container-tester` | Smoke-test definitions, verifying the first published set |
-| `cicd-engineer` | Reusable workflow design, `dockerhub` environment, `Update-Runner.ps1` and runner rollout |
+| `cicd-engineer` | Reusable workflow design, `Docker Hub zippy1981` environment, `Update-Runner.ps1` and runner rollout |
 | `workflow-author` | `php-container.yml`, `build-image.yml`, `image-refresh.yml` (detect, refresh, notify, staleness), `runner-host-cleanup.yml`, `pin-report.yml` |
 | `powershell-author` | `Get-BaseImageInfo.ps1`, `Get-RefreshMatrix.ps1`, `Remove-StaleImages.ps1`, with Pester tests |
 | `python-author` | `refresh_summary.py`, `check_pins.py`, with pytest |

@@ -50,8 +50,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, windows, docker]
     timeout-minutes: ${{ inputs.timeout-minutes }}
-    # The Docker Hub secrets live in the dockerhub environment, which only main can deploy to. Builds that don't publish use no environment.
-    environment: ${{ inputs.publish && github.ref == 'refs/heads/main' && 'dockerhub' || '' }}
+    # The Docker Hub secrets live in the "Docker Hub zippy1981" environment. It is only used when publishing from main; other builds use no environment.
+    environment: ${{ inputs.publish && github.ref == 'refs/heads/main' && 'Docker Hub zippy1981' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +106,7 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          if (-not $env:DOCKERHUB_USERNAME -or -not $env:DOCKERHUB_TOKEN) { throw 'DOCKERHUB_USERNAME and DOCKERHUB_TOKEN must be set in the dockerhub environment' }
+          if (-not $env:DOCKERHUB_USERNAME -or -not $env:DOCKERHUB_TOKEN) { throw 'DOCKERHUB_USERNAME and DOCKERHUB_TOKEN must be set in the "Docker Hub zippy1981" environment' }
           $version = '${{ matrix.windows-version }}'
           $osBuild = docker image inspect $env:IMAGE --format '{{.OsVersion}}'
           $repository = 'zippy1981/${{ inputs.image }}'

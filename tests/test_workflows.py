@@ -8,6 +8,7 @@ import re
 import pytest
 from repo_conventions import (
     FORK_GUARD,
+    PUBLISH_ENVIRONMENT,
     REFRESH_WORKFLOW,
     REUSABLE_WORKFLOW,
     REUSABLE_WORKFLOW_REF,
@@ -138,7 +139,7 @@ class TestReusableWorkflow:
             if wf != REFRESH_WORKFLOW:
                 assert "windows-versions" not in job.get("with", {}), f"{wf}:{job_id} must build every Windows version"
 
-    def test_publishes_only_from_main_through_the_dockerhub_environment(self, reusable_job: dict) -> None:
+    def test_publishes_only_from_main_through_the_publish_environment(self, reusable_job: dict) -> None:
         pushes = [s for s in reusable_job["steps"] if "docker push" in s.get("run", "")]
         assert pushes, "no publish step"
         for step in pushes:
@@ -147,7 +148,7 @@ class TestReusableWorkflow:
                 f"publish step {step.get('name')!r} must require inputs.publish and main (ADR 0006)"
             )
         environment = normalize_expression(str(reusable_job.get("environment", "")))
-        assert "'dockerhub'" in environment and "github.ref == 'refs/heads/main'" in environment
+        assert f"'{PUBLISH_ENVIRONMENT}'" in environment and "github.ref == 'refs/heads/main'" in environment
 
     def test_labels_every_build_for_refresh_detection(self, reusable_job: dict) -> None:
         build = next(s["run"] for s in reusable_job["steps"] if "docker build" in s.get("run", ""))

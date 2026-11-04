@@ -29,6 +29,8 @@ REUSABLE_WORKFLOW = "build-windows-image.yml"
 REUSABLE_WORKFLOW_REF = f"./.github/workflows/{REUSABLE_WORKFLOW}"
 # plans/patch-tuesday-image-refresh.md: the only workflow that publishes, and the only caller that builds a subset of versions
 REFRESH_WORKFLOW = "image-refresh.yml"
+# The GitHub environment that holds DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
+PUBLISH_ENVIRONMENT = "Docker Hub zippy1981"
 SMOKE_TEST = "smoke-test.ps1"
 # ADR 0011: actions owned by these accounts may use version tags; everything else is pinned to a commit
 TRUSTED_ACTION_OWNERS = {"actions"}

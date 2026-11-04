@@ -25,9 +25,8 @@ RUN mkdir "%NODE_DIRECTORY%" && \
     del node-v%NODE_VERSION%-win-x64.zip
 
 # Download PHP and extract it to C:\php using curl and tar
-# Use the archives path: it keeps every release, while /releases/ only has the latest patch of each branch
 RUN mkdir "%PHP_DIR%" &&\
-    curl -fL https://windows.php.net/downloads/releases/archives/php-%PHP_VERSION%-nts-Win32-vs%PHP_VS_VERSION%-x64.zip | tar -xf - -C "%PHP_DIR%" && \
+    curl -L https://windows.php.net/downloads/releases/php-%PHP_VERSION%-nts-Win32-vs%PHP_VS_VERSION%-x64.zip | tar -xf - -C "%PHP_DIR%" && \
     echo extension_dir="%PHP_DIR%\ext" >> "%PHP_DIR%\php.ini" && \
     echo extension=curl >> "%PHP_DIR%\php.ini" && \
     echo extension=fileinfo >> "%PHP_DIR%\php.ini" && \

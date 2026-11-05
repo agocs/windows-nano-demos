@@ -4,6 +4,7 @@ Smoke tests a built windows-nano-powershell image: tests/smoke.ps1 runs inside i
 .EXAMPLE
 ./nano-server/nano-server-powershell/smoke-test.ps1 -Image windows-nano-powershell:2025
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Image
 )

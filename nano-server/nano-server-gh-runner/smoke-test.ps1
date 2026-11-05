@@ -4,6 +4,7 @@ Smoke tests a built windows-nano-gh-runner image: pwsh, the powershell.exe stand
 .EXAMPLE
 ./nano-server/nano-server-gh-runner/smoke-test.ps1 -Image windows-nano-gh-runner:2025
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Image
 )

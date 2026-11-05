@@ -4,6 +4,7 @@ Smoke tests a built windows-nano-rust image by compiling and running a hello wor
 .EXAMPLE
 ./nano-server/nano-server-rust/smoke-test.ps1 -Image windows-nano-rust:2025
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Image
 )

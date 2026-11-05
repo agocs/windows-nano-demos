@@ -1,4 +1,3 @@
-#Requires -Version 7.3
 <#
 .SYNOPSIS
     End-to-end test for the windows-nano-ssh image.
@@ -23,6 +22,8 @@
       * a key that is not authorized is rejected
       * password logon is not offered at all
 #>
+#Requires -Version 7.3
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string] $Image,
     [string] $User = 'sshci',

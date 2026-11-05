@@ -4,10 +4,12 @@ Smoke tests a built windows-nano-php image. Throws on the first failure.
 .EXAMPLE
 ./nano-server/nano-server-php/smoke-test.ps1 -Image windows-nano-php:2025
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Image
 )
 $ErrorActionPreference = 'Stop'
+Write-Host "Smoke testing $Image"
 
 # The image's entrypoint is cmd /S /C, so each call runs through cmd with the user's PATH
 function Invoke-Image {

@@ -1,5 +1,11 @@
-# Container entrypoint: register the runner on first start, then run it.
-# Registration is kept in the container's filesystem, so `docker restart` reuses it without a new token.
+<#
+.SYNOPSIS
+Container entrypoint for the runner image: registers the runner on first start, then runs it.
+.DESCRIPTION
+Registration is kept in the container's filesystem, so `docker restart` reuses it without a new token.
+#>
+[CmdletBinding()]
+param()
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 

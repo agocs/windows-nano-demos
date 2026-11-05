@@ -1,0 +1,47 @@
+# PSScriptAnalyzer over every PowerShell file, with the repo's settings and custom rules (every script has
+# [CmdletBinding()] and comment-based help). See plans/powershell-lint.md.
+name: PowerShell lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.ps1'
+      - '**.psm1'
+      - '**.psd1'
+      - 'tools/psscriptanalyzer/**'
+      - '.github/workflows/powershell-lint.yml'
+  pull_request:
+    paths:
+      - '**.ps1'
+      - '**.psm1'
+      - '**.psd1'
+      - 'tools/psscriptanalyzer/**'
+      - '.github/workflows/powershell-lint.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PSSCRIPTANALYZER_VERSION: '1.25.0'
+
+jobs:
+  psscriptanalyzer:
+    # Static analysis only, no docker, so a GitHub-hosted runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: Install-PSResource -Name PSScriptAnalyzer -Version $env:PSSCRIPTANALYZER_VERSION -TrustRepository -Scope CurrentUser
+
+      - name: Analyze
+        shell: pwsh
+        run: ./scripts/Invoke-RepoScriptAnalyzer.ps1

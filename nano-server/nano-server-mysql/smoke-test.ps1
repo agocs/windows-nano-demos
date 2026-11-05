@@ -31,16 +31,26 @@ function Invoke-Client {
     [pscustomobject]@{ ExitCode = $code; Output = ($out | Out-String).Trim() }
 }
 
+# Waits until mysqld answers on TCP inside the server container. Counting "ready for connections" in the log is not
+# enough: MySQL 8.4 logs it twice per start (X Plugin and mysqld), and docker logs keeps the lines from before a
+# restart, so after a restart the count was already met and the client raced the server (issue #44). mysqladmin ping
+# exits 0 whenever the server answers, even with "Access denied", so it needs no password. The entrypoint's
+# --initialize-insecure step never listens, so only the real server answers.
 function Wait-Ready {
-    param([int]$Count)
     $deadline = (Get-Date).AddMinutes(5)
     do {
         Start-Sleep -Seconds 3
-        $log = docker logs $server 2>&1 | Out-String
         $running = (docker inspect -f '{{.State.Running}}' $server) -eq 'true'
-        $ready = [regex]::Matches($log, 'ready for connections').Count
-    } until ($ready -ge $Count -or -not $running -or (Get-Date) -gt $deadline)
-    if ($ready -lt $Count) { throw "mysqld did not become ready (running=$running). Log:`n$log" }
+        $ready = $false
+        if ($running) {
+            docker exec $server mysqladmin --protocol=TCP -h 127.0.0.1 -u root --connect-timeout=2 ping 2>&1 | Out-Null
+            $ready = $LASTEXITCODE -eq 0
+        }
+    } until ($ready -or -not $running -or (Get-Date) -gt $deadline)
+    if (-not $ready) {
+        $log = docker logs $server 2>&1 | Out-String
+        throw "mysqld did not become ready (running=$running). Log:`n$log"
+    }
 }
 
 function Get-ServerIp {
@@ -63,7 +73,7 @@ try {
     docker run -d --name $server -v "${volume}:C:\mysql\data" `
         -e "MYSQL_ROOT_PASSWORD=$rootPassword" -e MYSQL_DATABASE=appdb -e MYSQL_USER=appuser -e "MYSQL_PASSWORD=$appPassword" `
         $Image | Out-Null
-    Wait-Ready -Count 1
+    Wait-Ready
     $user = docker exec $server cmd /c "echo %USERNAME%"
     Write-Host "ok: server ready, running as $user"
     if ($user -match 'administrator') { throw "mysqld should not run as an administrator, but runs as $user" }
@@ -88,7 +98,7 @@ try {
 
     # 6. The data survives a restart, and the entrypoint doesn't re-initialize
     docker restart $server | Out-Null
-    Wait-Ready -Count 2
+    Wait-Ready
     $ip = Get-ServerIp
     $r = Invoke-Client $ip root $rootPassword 'SELECT v FROM smoke.t WHERE id = 1'
     if ($r.ExitCode -ne 0 -or $r.Output -ne 'nano-ok') { throw "the row did not survive a restart ($($r.ExitCode)): $($r.Output)" }

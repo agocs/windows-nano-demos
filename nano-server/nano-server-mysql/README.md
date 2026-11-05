@@ -48,7 +48,7 @@ The smoke test checks that the server refuses to start without a root password, 
 
 ### Windows versions
 
-CI builds and tests this image for **ltsc2022 and ltsc2025 only**. On ltsc2019 the smoke test's restart check fails intermittently, with "the row did not survive a restart". It passed on some runs and failed on others for the same image, and the root cause isn't known yet. The workflow narrows the shared matrix with `windows-versions`, and `WINDOWS_VERSION_EXCEPTIONS` in `tests/repo_conventions.py` records the exception (ADR 0008). Building for 2019 locally still works with `set WINDOWS_VERSION=2019`, but that image isn't tested or published.
+CI builds and tests this image for ltsc2019, ltsc2022 and ltsc2025. ltsc2019 used to be left out because the smoke test's restart check failed there intermittently with `Can't connect`. The test waited by counting "ready for connections" in the log, but MySQL 8.4 logs that twice per start and `docker logs` keeps the lines from before the restart, so the client connected before the restarted server was listening. It now waits until `mysqladmin ping` answers ([#44](https://github.com/zippy1981/windows-nano-demos/issues/44)).
 
 ## Building
 

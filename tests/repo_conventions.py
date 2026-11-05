@@ -23,10 +23,8 @@ WINDOWS_VERSIONS = ["2019", "2022", "2025"]
 DEFAULT_WINDOWS_VERSION = "2025"
 # ADR 0008 exceptions: images whose workflow overrides the shared matrix with `windows-versions`, and exactly the
 # versions they build. Every entry needs a reason in the image README.
-WINDOWS_VERSION_EXCEPTIONS = {
-    # The smoke test's restart check ("the row did not survive a restart") fails intermittently on ltsc2019
-    "nano-server/nano-server-mysql": ["2022", "2025"],
-}
+# None today: MySQL builds ltsc2019 again since its smoke test waits for the server properly (issue #44).
+WINDOWS_VERSION_EXCEPTIONS: dict[str, list[str]] = {}
 BASE_IMAGE_ARG = re.compile(
     r"^ARG BASE_IMAGE=mcr\.microsoft\.com/windows/(nanoserver|servercore):ltsc\$\{WINDOWS_VERSION\}-amd64$"
 )

@@ -203,16 +203,32 @@ class TestRegistries:
             rm.Registries(self._fetch({})).base("docker.io/library/ubuntu:24.04")
 
 
-def test_discovery_honours_a_narrowed_version_list() -> None:
-    mysql = next(s for s in rm.discover_images() if s.context == "nano-server/nano-server-mysql")
-    assert sorted(mysql.bases) == ["2022", "2025"]
+def test_discovery_honours_a_narrowed_version_list(tmp_path) -> None:
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".github" / "workflows" / "x.yml").write_text(
+        "jobs:\n"
+        "  build:\n"
+        "    uses: ./.github/workflows/build-windows-image.yml\n"
+        "    with:\n"
+        "      context: nano-server/nano-server-x\n"
+        "      image: windows-nano-x\n"
+        '      windows-versions: \'["2022", "2025"]\'\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "nano-server" / "nano-server-x").mkdir(parents=True)
+    (tmp_path / "nano-server" / "nano-server-x" / "Dockerfile").write_text(
+        "ARG WINDOWS_VERSION=2025\nARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64\n",
+        encoding="utf-8",
+    )
+    (spec,) = rm.discover_images(tmp_path)
+    assert sorted(spec.bases) == ["2022", "2025"]
 
 
 def test_refresh_never_plans_a_version_an_image_doesnt_build() -> None:
     spec = rm.ImageSpec(
-        context="nano-server/nano-server-mysql",
-        image="windows-nano-mysql",
-        workflow="mysql-container.yml",
+        context="nano-server/nano-server-x",
+        image="windows-nano-x",
+        workflow="x.yml",
         bases={v: f"mcr.microsoft.com/windows/nanoserver:ltsc{v}-amd64" for v in ("2022", "2025")},
     )
     (entry,) = rm.plan_refresh([spec], FakeRegistries({}), never_changed, force=True)

@@ -172,3 +172,16 @@ class TestEveryImageHasACallerWorkflow:
 def test_callers_point_at_an_image_folder(wf: str, job_id: str, job: dict) -> None:
     context = job.get("with", {}).get("context", "")
     assert context in {p.name for p in image_dirs()}, f"{wf}:{job_id} context {context!r} isn't a folder with a Dockerfile"
+
+
+@pytest.mark.parametrize(("wf", "job_id", "job"), callers_of_reusable(), ids=lambda c: str(c))
+def test_callers_dont_set_the_windows_version_or_base_through_build_args(wf: str, job_id: str, job: dict) -> None:
+    extra = str(job.get("with", {}).get("build-args", ""))
+    for name in ("WINDOWS_VERSION", "BASE_IMAGE"):
+        assert name not in extra, f"{wf}:{job_id} sets {name} in build-args; the shared matrix and base-image-overrides own it"
+
+
+def test_reusable_workflow_rejects_version_and_base_in_build_args() -> None:
+    (job,) = jobs(workflows()[REUSABLE_WORKFLOW]).values()
+    build = next(s["run"] for s in job["steps"] if "docker build" in s.get("run", ""))
+    assert "'WINDOWS_VERSION', 'BASE_IMAGE'" in build and "throw" in build

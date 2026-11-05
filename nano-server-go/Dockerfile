@@ -3,10 +3,15 @@ ARG WINDOWS_VERSION=2025
 ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64
 FROM ${BASE_IMAGE}
 
+# The Go toolchain version (issue #20). CI builds the three newest Go releases, and the default is the newest.
+ARG GO_VERSION=1.27.3
+
 # Pinned tool versions and install locations.
 # CGO_ENABLED=0 because there is no C compiler on nanoserver.
+# GOTOOLCHAIN=local: always use this image's Go, and never download a newer one that a go.mod asks for.
 ENV \
-    GO_VERSION=1.27.3 \
+    GO_VERSION=${GO_VERSION} \
+    GOTOOLCHAIN=local \
     GOROOT="C:\\Program Files\\go" \
     GOPATH="C:\\users\\containeruser\\go" \
     CGO_ENABLED=0 \

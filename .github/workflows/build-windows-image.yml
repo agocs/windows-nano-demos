@@ -17,6 +17,14 @@ on:
         description: 'JSON map from Windows version to base image, for versions that need a different base, e.g. {"2025": "mcr.microsoft.com/windows/servercore:ltsc2025-amd64"}'
         type: string
         default: '{}'
+      build-args:
+        description: 'JSON map of extra build arguments, for an image that builds several variants, e.g. {"GO_VERSION": "1.26.10"}. WINDOWS_VERSION and BASE_IMAGE are not allowed here; the matrix and base-image-overrides set those.'
+        type: string
+        default: '{}'
+      variant:
+        description: Variant name, for example go1.26.10. It goes into the CI image tag so parallel variants don't collide.
+        type: string
+        default: ''
       timeout-minutes:
         description: Job timeout. A stuck build would otherwise hold a shared runner for 6 hours.
         type: number
@@ -33,8 +41,9 @@ jobs:
       matrix:
         windows-version: ['2019', '2022', '2025']
     env:
-      IMAGE: ${{ inputs.image }}:ci-${{ matrix.windows-version }}-${{ github.sha }}
+      IMAGE: ${{ inputs.image }}:ci-${{ inputs.variant && format('{0}-', inputs.variant) || '' }}${{ matrix.windows-version }}-${{ github.sha }}
       BASE_IMAGE: ${{ fromJSON(inputs.base-image-overrides)[matrix.windows-version] }}
+      EXTRA_BUILD_ARGS: ${{ inputs.build-args }}
     defaults:
       run:
         shell: pwsh
@@ -46,6 +55,10 @@ jobs:
         run: |
           $buildArgs = @('--build-arg', 'WINDOWS_VERSION=${{ matrix.windows-version }}')
           if ($env:BASE_IMAGE) { $buildArgs += @('--build-arg', "BASE_IMAGE=$env:BASE_IMAGE") }
+          foreach ($arg in ($env:EXTRA_BUILD_ARGS | ConvertFrom-Json -AsHashtable).GetEnumerator()) {
+            if ($arg.Key -in 'WINDOWS_VERSION', 'BASE_IMAGE') { throw "build-args can't set $($arg.Key); the matrix and base-image-overrides own it" }
+            $buildArgs += @('--build-arg', "$($arg.Key)=$($arg.Value)")
+          }
           # Hyper-V isolated builds default to 1 GB of memory, which hangs large extractions
           docker build --memory 4g @buildArgs -t $env:IMAGE .
           if ($LASTEXITCODE) { throw "docker build failed: $LASTEXITCODE" }

@@ -1,15 +1,24 @@
 <#
 .SYNOPSIS
-Smoke tests a built windows-nano-go image: the tools, a hello world module, and a real project (issue #18).
-It clones and builds algernon (https://github.com/xyproto/algernon) inside the image, runs it, and checks it over HTTP with curl from inside the container.
+Smoke tests a built windows-nano-go image: the tools, the Go version it was built with (issue #20), a hello world module,
+and a real project (issue #18).
+It clones and builds algernon (https://github.com/xyproto/algernon) inside the image, runs it, and checks it over HTTP with
+curl from inside the container. algernon's go.mod needs a minimum Go, and the image sets GOTOOLCHAIN=local, so images with
+an older Go skip that part and say so rather than downloading a newer toolchain.
 .EXAMPLE
 ./nano-server-go/smoke-test.ps1 -Image windows-nano-go:2025
 #>
 param(
     [Parameter(Mandatory)][string]$Image,
-    [string]$AlgernonVersion = 'v1.17.12'
+    [string]$AlgernonVersion = 'v1.17.12',
+    # The `go` line in algernon's go.mod at $AlgernonVersion
+    [version]$AlgernonMinimumGo = '1.27.3'
 )
 $ErrorActionPreference = 'Stop'
+
+# The GO_VERSION the image was built with, from its environment
+$goVersion = (docker image inspect $Image --format '{{range .Config.Env}}{{println .}}{{end}}' | Select-String '^GO_VERSION=(.+)$').Matches.Groups[1].Value
+if (-not $goVersion) { throw "$Image has no GO_VERSION in its environment" }
 
 $suffix = [guid]::NewGuid().ToString('n').Substring(0, 8)
 $helloImage = "go-smoke-hello:$suffix"
@@ -24,8 +33,10 @@ function Build-Derived([string]$Tag, [string]$Dockerfile) {
 
 try {
     # nanoserver has no where.exe, so run each tool to prove it is on PATH
-    docker run --rm $Image "go version && go env GOPATH CGO_ENABLED && git --version && micro -version"
+    docker run --rm $Image "go version && go env GOPATH CGO_ENABLED GOTOOLCHAIN && git --version && micro -version"
     if ($LASTEXITCODE) { throw "tool check failed: $LASTEXITCODE" }
+    $reported = docker run --rm $Image "go version"
+    if ($reported -notmatch "go$([regex]::Escape($goVersion)) windows/amd64") { throw "expected Go $goVersion, image reports: $reported" }
 
     Build-Derived $helloImage @'
 FROM __IMAGE__
@@ -35,6 +46,11 @@ RUN echo package main> main.go && echo import "fmt">> main.go && echo func main(
     $out = docker run --rm $helloImage "hello.exe"
     if ($LASTEXITCODE -or $out -notmatch 'hello from go') { throw "hello world failed ($LASTEXITCODE): $out" }
     Write-Host $out
+
+    if ([version]$goVersion -lt $AlgernonMinimumGo) {
+        Write-Host "SKIP algernon ${AlgernonVersion}: it needs Go $AlgernonMinimumGo and this image has Go $goVersion with GOTOOLCHAIN=local"
+        return
+    }
 
     # Issue #18: a real-world module with many dependencies, built with CGO disabled
     Build-Derived $algernonImage @"

@@ -1,4 +1,5 @@
-# Builds and tests windows-nano-go for every Windows version through the shared workflow (ADR 0009)
+# Builds and tests windows-nano-go for the three newest Go releases (issue #20) on every Windows version,
+# through the shared workflow (ADR 0009)
 name: Go container
 
 on:
@@ -18,9 +19,16 @@ on:
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # The latest patch of the three newest Go release lines. windows-deps-updater bumps these.
+        go-version: ['1.27.3', '1.26.10', '1.25.14']
     uses: ./.github/workflows/build-windows-image.yml
     with:
       context: nano-server-go
       image: windows-nano-go
+      build-args: '{"GO_VERSION": "${{ matrix.go-version }}"}'
+      variant: go${{ matrix.go-version }}
       # The algernon build in smoke-test.ps1 (issue #18) adds a few minutes per version
       timeout-minutes: 90

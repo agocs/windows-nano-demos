@@ -19,8 +19,8 @@
 *.PDF      diff=astextplain
 *.rtf      diff=astextplain
 *.RTF      diff=astextplain
-*.md       text diff=markdown
-*.mdx      text diff=markdown
+*.md       text eol=lf diff=markdown
+*.mdx      text eol=lf diff=markdown
 *.tex      text diff=tex
 *.adoc     text
 *.textile  text
@@ -58,11 +58,11 @@
 *.ps1      text eol=crlf
 
 # Serialisation
-*.json     text
-*.toml     text
+*.json     text eol=lf
+*.toml     text eol=lf
 *.xml      text
-*.yaml     text
-*.yml      text
+*.yaml     text eol=lf
+*.yml      text eol=lf
 
 # Archives
 *.7z       binary
@@ -81,3 +81,11 @@
 .gitattributes export-ignore
 .gitignore     export-ignore
 .gitkeep       export-ignore
+
+# LF for the files Claude Code and the tools edit most. In a CRLF working copy, sed and perl edits silently miss
+# matches anchored at the end of a line. Windows batch and PowerShell files keep CRLF (above).
+*.py       text eol=lf
+*.lock     text eol=lf
+Dockerfile text eol=lf
+.gitattributes text eol=lf
+.gitignore     text eol=lf

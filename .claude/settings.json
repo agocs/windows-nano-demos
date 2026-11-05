@@ -1,0 +1,6 @@
+{
+  "env": {
+    "UV_PYTHON": "3.14",
+    "UV_PYTHON_PREFERENCE": "only-managed"
+  }
+}

@@ -1,4 +1,5 @@
-# Builds and tests windows-nano-mysql for every Windows version through the shared workflow (ADR 0009)
+# Builds and tests windows-nano-mysql for ltsc2022 and ltsc2025 through the shared workflow (ADR 0009).
+# ltsc2019 is an ADR 0008 exception: see nano-server-mysql/README.md.
 name: MySQL container
 
 on:
@@ -27,3 +28,5 @@ jobs:
     with:
       context: nano-server-mysql
       image: windows-nano-mysql
+      # Not ltsc2019: the smoke test's restart check fails intermittently there (WINDOWS_VERSION_EXCEPTIONS in tests/)
+      windows-versions: '["2022", "2025"]'

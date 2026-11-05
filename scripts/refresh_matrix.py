@@ -87,7 +87,7 @@ class ImageSpec:
     context: str
     image: str
     workflow: str
-    bases: dict[str, str]  # Windows version -> base image reference, without digest
+    bases: dict[str, str]  # Windows version -> base image reference, without digest, for the versions it builds
 
 
 class RegistryError(RuntimeError):
@@ -187,9 +187,12 @@ def discover_images(root: Path = REPO_ROOT) -> list[ImageSpec]:
             if not match:
                 raise ValueError(f"{context}/Dockerfile doesn't declare the BASE_IMAGE argument (ADR 0008)")
             overrides = json.loads(inputs.get("base-image-overrides") or "{}")
+            # An image's workflow can narrow the versions it builds (ADR 0008 exceptions); never publish the others
+            versions = json.loads(inputs.get("windows-versions") or json.dumps(list(WINDOWS_VERSIONS)))
             bases = {
                 version: overrides.get(version, f"{MCR_PREFIX}windows/{match.group(1)}:ltsc{version}-amd64")
                 for version in WINDOWS_VERSIONS
+                if version in versions
             }
             specs.append(ImageSpec(context, str(inputs["image"]), path.name, bases))
     return specs
@@ -228,7 +231,7 @@ def plan_refresh(
         pinned: dict[str, str] = {}
         reasons: dict[str, str] = {}
         os_versions: dict[str, str] = {}
-        for version in WINDOWS_VERSIONS:
+        for version in (v for v in WINDOWS_VERSIONS if v in spec.bases):
             base = registries.base(spec.bases[version])
             reason = None
             if force:

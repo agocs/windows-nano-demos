@@ -198,3 +198,19 @@ class TestRegistries:
     def test_rejects_non_mcr_bases(self) -> None:
         with pytest.raises(rm.RegistryError):
             rm.Registries(self._fetch({})).base("docker.io/library/ubuntu:24.04")
+
+
+def test_discovery_honours_a_narrowed_version_list() -> None:
+    mysql = next(s for s in rm.discover_images() if s.context == "nano-server-mysql")
+    assert sorted(mysql.bases) == ["2022", "2025"]
+
+
+def test_refresh_never_plans_a_version_an_image_doesnt_build() -> None:
+    spec = rm.ImageSpec(
+        context="nano-server-mysql",
+        image="windows-nano-mysql",
+        workflow="mysql-container.yml",
+        bases={v: f"mcr.microsoft.com/windows/nanoserver:ltsc{v}-amd64" for v in ("2022", "2025")},
+    )
+    (entry,) = rm.plan_refresh([spec], FakeRegistries({}), never_changed, force=True)
+    assert json.loads(entry["windows-versions"]) == ["2022", "2025"]

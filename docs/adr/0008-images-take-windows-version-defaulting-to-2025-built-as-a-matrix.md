@@ -30,6 +30,7 @@ Every image in this repo:
 - `docker build .` and `build.cmd` with no arguments give the newest version. Users on older hosts pass `--build-arg WINDOWS_VERSION=2019` or `2022`.
 - Older hosts that only have the 2022 base cached pull the 2025 base on a default build.
 - An image with a version-specific problem passes a base image override for that version in its workflow, as the SSH image does for 2025, rather than leaving the matrix.
+- When no override makes a version work, the image's workflow may narrow the matrix with the shared workflow's `windows-versions` input. Each such image must be listed, with exactly the versions it builds, in `WINDOWS_VERSION_EXCEPTIONS` in `tests/repo_conventions.py`, must still build the default version, and must explain why in its README. The refresh workflow then never builds or publishes the excluded versions. First case: MySQL builds 2022 and 2025 only, because its restart check fails intermittently on 2019 (2026-11-05).
 - [0011](0011-repository-conventions-are-enforced-by-tests-in-ci.md) tests check the `Dockerfile` and `build.cmd` defaults, so drift fails CI.
 
 ## Alternatives considered

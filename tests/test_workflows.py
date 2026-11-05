@@ -7,6 +7,7 @@ import re
 
 import pytest
 from repo_conventions import (
+    DEFAULT_WINDOWS_VERSION,
     FORK_GUARD,
     PUBLISH_ENVIRONMENT,
     REFRESH_WORKFLOW,
@@ -15,6 +16,7 @@ from repo_conventions import (
     RUNNER_LABELS,
     SMOKE_TEST,
     TRUSTED_ACTION_OWNERS,
+    WINDOWS_VERSION_EXCEPTIONS,
     WINDOWS_VERSIONS,
     all_jobs,
     callers_of_reusable,
@@ -134,10 +136,26 @@ class TestReusableWorkflow:
         default = reusable["on"]["workflow_call"]["inputs"]["windows-versions"]["default"]
         assert json.loads(default) == WINDOWS_VERSIONS
 
-    def test_image_workflows_build_every_version(self) -> None:
+    def test_image_workflows_build_every_version_unless_excepted(self) -> None:
         for wf, job_id, job in callers_of_reusable():
-            if wf != REFRESH_WORKFLOW:
-                assert "windows-versions" not in job.get("with", {}), f"{wf}:{job_id} must build every Windows version"
+            if wf == REFRESH_WORKFLOW:
+                continue
+            inputs = job.get("with", {})
+            context = inputs.get("context")
+            if context in WINDOWS_VERSION_EXCEPTIONS:
+                assert json.loads(inputs.get("windows-versions", "null")) == WINDOWS_VERSION_EXCEPTIONS[context], (
+                    f"{wf}:{job_id} must pass windows-versions {WINDOWS_VERSION_EXCEPTIONS[context]} as listed in "
+                    "WINDOWS_VERSION_EXCEPTIONS"
+                )
+            else:
+                assert "windows-versions" not in inputs, (
+                    f"{wf}:{job_id} must build every Windows version, or be added to WINDOWS_VERSION_EXCEPTIONS (ADR 0008)"
+                )
+
+    def test_version_exceptions_are_real_subsets(self) -> None:
+        for context, versions in WINDOWS_VERSION_EXCEPTIONS.items():
+            assert versions and set(versions) < set(WINDOWS_VERSIONS), f"{context}: {versions}"
+            assert DEFAULT_WINDOWS_VERSION in versions, f"{context} must still build the default version"
 
     def test_publishes_only_from_main_through_the_publish_environment(self, reusable_job: dict) -> None:
         pushes = [s for s in reusable_job["steps"] if "docker push" in s.get("run", "")]

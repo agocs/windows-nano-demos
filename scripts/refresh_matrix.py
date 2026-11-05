@@ -20,6 +20,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable
@@ -61,6 +62,25 @@ TIMEOUT_SECONDS = 30
 # (url, headers) -> (status, headers with lower-case keys, body)
 Fetch = Callable[[str, dict[str, str]], tuple[int, dict[str, str], bytes]]
 
+RETRY_ATTEMPTS = 4
+RETRY_STATUSES = {429, 500, 502, 503, 504}
+MAX_RETRY_AFTER = 60.0
+# Registry error codes that mean the repository or tag doesn't exist (yet), as opposed to a real failure
+NOT_PUBLISHED_CODES = {"UNAUTHORIZED", "NAME_UNKNOWN", "MANIFEST_UNKNOWN", "NOT_FOUND"}
+
+
+def hub_not_published(status: int, body: bytes) -> bool:
+    """Docker Hub returns 401 UNAUTHORIZED, not 404, for a repository that has never been pushed."""
+    if status == 404:
+        return True
+    if status != 401:
+        return False
+    try:
+        codes = {error.get("code") for error in json.loads(body).get("errors", [])}
+    except (ValueError, AttributeError):
+        return False
+    return bool(codes & NOT_PUBLISHED_CODES)
+
 
 def http_fetch(url: str, headers: dict[str, str]) -> tuple[int, dict[str, str], bytes]:
     request = urllib.request.Request(url, headers=headers)
@@ -95,26 +115,61 @@ class RegistryError(RuntimeError):
 
 
 class Registries:
-    """Reads manifests and image configs from MCR (anonymous) and Docker Hub (anonymous pull token)."""
+    """Reads manifests and image configs from MCR (anonymous) and Docker Hub (anonymous pull token).
 
-    def __init__(self, fetch: Fetch = http_fetch) -> None:
+    Transient failures (network errors, 429 and 5xx) are retried with backoff. Docker Hub answers a pull for a
+    repository that doesn't exist yet with 401 UNAUTHORIZED, not 404, so that counts as "not published".
+    """
+
+    def __init__(
+        self, fetch: Fetch = http_fetch, sleep: Callable[[float], None] = time.sleep, attempts: int = RETRY_ATTEMPTS
+    ) -> None:
         self._fetch = fetch
+        self._sleep = sleep
+        self._attempts = attempts
         self._bases: dict[str, BaseImage] = {}
 
-    def _get_json(self, url: str, headers: dict[str, str]) -> tuple[int, dict[str, str], Any]:
-        status, response_headers, body = self._fetch(url, headers)
-        if status == 404:
+    def _request(self, url: str, headers: dict[str, str]) -> tuple[int, dict[str, str], bytes]:
+        for attempt in range(1, self._attempts + 1):
+            try:
+                status, response_headers, body = self._fetch(url, headers)
+            except OSError as error:  # URLError, timeouts and connection resets are all OSError
+                if attempt == self._attempts:
+                    raise RegistryError(f"GET {url} failed after {attempt} attempts: {error}") from error
+                self._sleep(2 ** (attempt - 1))
+                continue
+            if status not in RETRY_STATUSES or attempt == self._attempts:
+                return status, response_headers, body
+            retry_after = response_headers.get("retry-after", "")
+            self._sleep(min(float(retry_after), MAX_RETRY_AFTER) if retry_after.isdigit() else 2 ** (attempt - 1))
+        raise AssertionError("unreachable")
+
+    def _get_json(
+        self,
+        url: str,
+        headers: dict[str, str],
+        missing: Callable[[int, bytes], bool] = lambda status, body: status == 404,
+    ) -> tuple[int, dict[str, str], Any]:
+        status, response_headers, body = self._request(url, headers)
+        if missing(status, body):
             return status, response_headers, None
         if status != 200:
-            raise RegistryError(f"GET {url} returned {status}")
+            raise RegistryError(f"GET {url} returned {status}: {body[:200]!r}")
         return status, response_headers, json.loads(body)
 
     def _config(
-        self, registry: str, repository: str, reference: str, headers: dict[str, str]
+        self,
+        registry: str,
+        repository: str,
+        reference: str,
+        headers: dict[str, str],
+        missing: Callable[[int, bytes], bool] = lambda status, body: status == 404,
     ) -> tuple[str, Any] | None:
         """The manifest digest and the image config for one image, resolving an index to windows/amd64."""
         auth = dict(headers, Accept=MANIFEST_ACCEPT)
-        _, response_headers, manifest = self._get_json(f"{registry}/v2/{repository}/manifests/{reference}", auth)
+        _, response_headers, manifest = self._get_json(
+            f"{registry}/v2/{repository}/manifests/{reference}", auth, missing
+        )
         if manifest is None:
             return None
         digest = response_headers.get("docker-content-digest", "")
@@ -156,7 +211,9 @@ class Registries:
         _, _, token = self._get_json(f"{HUB_AUTH}?service=registry.docker.io&scope=repository:{repository}:pull", {})
         if token is None:
             return None
-        found = self._config(HUB_REGISTRY, repository, tag, {"Authorization": f"Bearer {token['token']}"})
+        found = self._config(
+            HUB_REGISTRY, repository, tag, {"Authorization": f"Bearer {token['token']}"}, hub_not_published
+        )
         if found is None:
             return None
         _, config = found
@@ -215,14 +272,34 @@ def git_changed_since(revision: str, context: str, root: Path = REPO_ROOT) -> bo
     return bool(log.stdout.strip())
 
 
+def rebuild_reason(
+    labels: dict[str, str] | None, base: BaseImage, spec: ImageSpec, changed_since: Callable[[str, str], bool]
+) -> str | None:
+    """Why a published leg needs rebuilding, or None if it's current."""
+    if labels is None:
+        return "missing"
+    if labels.get(BASE_DIGEST_LABEL) != base.digest:
+        return "base-changed"
+    if not labels.get(REVISION_LABEL) or changed_since(labels[REVISION_LABEL], spec.context):
+        return "source-changed"
+    return None
+
+
 def plan_refresh(
     specs: Iterable[ImageSpec],
     registries: Registries,
     changed_since: Callable[[str, str], bool] = git_changed_since,
     force: bool = False,
     only: set[str] | None = None,
+    warnings: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """One matrix entry per image that has at least one Windows version to rebuild."""
+    """One matrix entry per image that has at least one Windows version to rebuild.
+
+    One registry failure never stops detection for the other images. If the base image can't be resolved, that leg
+    is skipped, because it can't be pinned. If the published image can't be read for a reason other than "not
+    published", that leg is rebuilt, because rebuilding and republishing is harmless. Both are added to `warnings`.
+    """
+    warnings = warnings if warnings is not None else []
     entries: list[dict[str, Any]] = []
     for spec in specs:
         if only and spec.context not in only:
@@ -232,18 +309,19 @@ def plan_refresh(
         reasons: dict[str, str] = {}
         os_versions: dict[str, str] = {}
         for version in (v for v in WINDOWS_VERSIONS if v in spec.bases):
-            base = registries.base(spec.bases[version])
-            reason = None
+            try:
+                base = registries.base(spec.bases[version])
+            except RegistryError as error:
+                warnings.append(f"{spec.image} {version}: skipped, base image lookup failed: {error}")
+                continue
             if force:
                 reason = "forced"
             else:
-                labels = registries.published_labels(spec.image, version)
-                if labels is None:
-                    reason = "missing"
-                elif labels.get(BASE_DIGEST_LABEL) != base.digest:
-                    reason = "base-changed"
-                elif not labels.get(REVISION_LABEL) or changed_since(labels[REVISION_LABEL], spec.context):
-                    reason = "source-changed"
+                try:
+                    reason = rebuild_reason(registries.published_labels(spec.image, version), base, spec, changed_since)
+                except RegistryError as error:
+                    warnings.append(f"{spec.image} {version}: rebuilding, published image unreadable: {error}")
+                    reason = "unknown-published-state"
             if reason:
                 versions.append(version)
                 pinned[version] = base.pinned
@@ -264,18 +342,17 @@ def plan_refresh(
     return entries
 
 
-def summary_markdown(entries: list[dict[str, Any]]) -> str:
+def summary_markdown(entries: list[dict[str, Any]], warnings: list[str] | None = None) -> str:
+    lines = ["## Image refresh", ""]
     if not entries:
-        return "## Image refresh\n\nNothing to rebuild: every published image matches its base image and source.\n"
-    lines = [
-        "## Image refresh",
-        "",
-        "| Image | Windows | Reason | Base OS build |",
-        "| --- | --- | --- | --- |",
-    ]
-    for entry in entries:
-        for version, reason in entry["reasons"].items():
-            lines.append(f"| `{entry['image']}` | {version} | {reason} | {entry['os-versions'][version]} |")
+        lines.append("Nothing to rebuild: every published image matches its base image and source.")
+    else:
+        lines += ["| Image | Windows | Reason | Base OS build |", "| --- | --- | --- | --- |"]
+        for entry in entries:
+            for version, reason in entry["reasons"].items():
+                lines.append(f"| `{entry['image']}` | {version} | {reason} | {entry['os-versions'][version]} |")
+    if warnings:
+        lines += ["", "### Warnings", ""] + [f"- {warning}" for warning in warnings]
     return "\n".join(lines) + "\n"
 
 
@@ -291,11 +368,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     only = {name.strip() for name in args.images.split(",") if name.strip()} or None
+    warnings: list[str] = []
     try:
-        entries = plan_refresh(discover_images(), Registries(), force=args.force, only=only)
+        specs = discover_images()
+        entries = plan_refresh(specs, Registries(), force=args.force, only=only, warnings=warnings)
     except (RegistryError, ValueError) as error:
         print(f"refresh_matrix: {error}", file=sys.stderr)
         return 1
+    for warning in warnings:
+        # GitHub Actions shows these as annotations on the run
+        print(f"::warning::{warning}" if args.github_output else f"refresh_matrix: warning: {warning}", file=sys.stderr)
 
     matrix = json.dumps(entries)
     print(json.dumps(entries, indent=2))
@@ -303,7 +385,12 @@ def main(argv: list[str] | None = None) -> int:
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
             output.write(f"matrix={matrix}\n")
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
-            summary.write(summary_markdown(entries))
+            summary.write(summary_markdown(entries, warnings))
+    legs = sum(len(spec.bases) for spec in specs if not only or spec.context in only)
+    skipped = sum("base image lookup failed" in warning for warning in warnings)
+    if legs and skipped == legs:
+        print("refresh_matrix: no base image could be resolved, so nothing can be planned", file=sys.stderr)
+        return 1
     return 0
 
 

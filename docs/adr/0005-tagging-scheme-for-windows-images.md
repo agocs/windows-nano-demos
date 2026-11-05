@@ -31,6 +31,23 @@ Local and CI builds keep `windows-nano-<x>:<ver>`, and CI test images use `windo
 - Old immutable tags pile up on Docker Hub. A retention policy can be added later. Local host retention is handled by the cleanup script.
 - The image READMEs must document the scheme.
 
+## Amendment: variant images (2026-11-05)
+
+Some images are published in several variants of the same Windows version, such as the Go image with one variant per Go release, and a cgo variant to come. Each variant has a **tag prefix**, and every tag above is prefixed with it:
+
+- `windows-nano-go:1.26.10-2025`, `:1.26.10-2025-<os-build>`, `:1.26.10-2025-YYYY-MM` and `:1.26.10-2025-<os-build>-<sha7>`
+- `windows-nano-go:1.27.3-cgo-2025` and so on, for the cgo variant
+
+**Exactly one variant per image is its default**, the newest Go with cgo off for the Go image. The default variant also publishes the plain tags above (`:2025` …), so `docker pull zippy1981/windows-nano-go:2025` keeps working.
+
+How it works:
+
+- An image declares its variants as `strategy.matrix.include` entries in its workflow. Each entry passes `build-args`, `variant` (the CI tag), `tag-prefix` and `also-plain-tags` to the shared workflow.
+- `scripts/refresh_matrix.py` expands those entries into one leg per variant and reads each variant's labels from its own `:<prefix>-<ver>` tag. It refuses an image whose variants repeat a prefix, leave one empty, or don't have exactly one `also-plain-tags`.
+- The published image is labelled `org.opencontainers.image.version=<prefix>`.
+
+Any image can use this the same way. An image with a single variant passes neither input and keeps the plain tags.
+
 ## Alternatives considered
 
 - **KB-number tags (`:2022-KB5044281`)**, as MCR does. They are meaningful to admins, but the KB number isn't in the image metadata and has to be scraped from the MCR tags list. The OS build is in the image.

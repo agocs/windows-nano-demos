@@ -30,6 +30,14 @@ on:
         description: Variant name, for example go1.26.10. It goes into the CI image tag so parallel variants don't collide.
         type: string
         default: ''
+      tag-prefix:
+        description: 'For images published in several variants: published tags become <tag-prefix>-<ver>, <tag-prefix>-<ver>-<os-build> and so on (ADR 0005), for example 1.26.10-2025. Empty publishes the plain <ver> tags.'
+        type: string
+        default: ''
+      also-plain-tags:
+        description: With a tag-prefix, also publish the plain <ver> tags. Set it on exactly one variant per image, the one users get from :2025.
+        type: boolean
+        default: false
       publish:
         description: Push the tested image to Docker Hub. Only takes effect on main (ADR 0006).
         type: boolean
@@ -104,6 +112,8 @@ jobs:
             'org.opencontainers.image.created' = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
             'org.opencontainers.image.title' = '${{ inputs.image }}'
           }
+          # Variant images say which variant they are, for example 1.26.10 or 1.27.3-cgo
+          if ('${{ inputs.tag-prefix }}') { $labels['org.opencontainers.image.version'] = '${{ inputs.tag-prefix }}' }
           if ($env:BASE_IMAGE) {
             $name, $digest = $env:BASE_IMAGE -split '@', 2
             $labels['org.opencontainers.image.base.name'] = $name
@@ -117,13 +127,17 @@ jobs:
           $version = '${{ matrix.windows-version }}'
           $osBuild = docker image inspect $labelled --format '{{.OsVersion}}'
           $repository = 'zippy1981/${{ inputs.image }}'
-          # ADR 0005: moving :<ver>, :<ver>-<os-build> and :<ver>-YYYY-MM, plus an immutable :<ver>-<os-build>-<sha7>
-          $tags = @(
+          # ADR 0005: moving :<ver>, :<ver>-<os-build> and :<ver>-YYYY-MM, plus an immutable :<ver>-<os-build>-<sha7>.
+          # A variant prefixes each of them (:1.26.10-2025 ...); the default variant also gets the plain tags.
+          $plain = @(
             $version
             "$version-$osBuild"
             "$version-$((Get-Date).ToUniversalTime().ToString('yyyy-MM'))"
             "$version-$osBuild-$('${{ github.sha }}'.Substring(0, 7))"
           )
+          $prefix = '${{ inputs.tag-prefix }}'
+          $tags = if ($prefix) { $plain | ForEach-Object { "$prefix-$_" } } else { $plain }
+          if ($prefix -and '${{ inputs.also-plain-tags }}' -eq 'true') { $tags = @($tags) + $plain }
           # Runner containers persist between jobs, so the login lives in a throwaway config directory
           $env:DOCKER_CONFIG = Join-Path $env:RUNNER_TEMP "docker-config-$([guid]::NewGuid().ToString('n'))"
           New-Item -ItemType Directory -Path $env:DOCKER_CONFIG | Out-Null

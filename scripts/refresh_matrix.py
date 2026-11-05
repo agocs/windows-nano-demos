@@ -108,6 +108,59 @@ class ImageSpec:
     image: str
     workflow: str
     bases: dict[str, str]  # Windows version -> base image reference, without digest, for the versions it builds
+    # Variant images (ADR 0005, amended): one spec per entry of the caller's matrix, such as each Go version
+    build_args: str = "{}"  # JSON map passed to the shared workflow's build-args
+    variant: str = ""  # CI tag disambiguator
+    tag_prefix: str = ""  # published tags are <tag_prefix>-<ver>...; empty means the plain <ver>... tags
+    also_plain_tags: bool = False  # the image's default variant also publishes the plain <ver>... tags
+
+    def published_tag(self, version: str) -> str:
+        """The moving tag this spec publishes for a Windows version, which detection reads labels from."""
+        return f"{self.tag_prefix}-{version}" if self.tag_prefix else version
+
+
+_MATRIX_EXPRESSION = re.compile(r"\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}")
+
+
+def matrix_combinations(strategy: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The combinations a job's strategy.matrix produces: the product of its keys, then include and exclude.
+
+    This covers what this repo's workflows use. Like GitHub, an include entry extends every combination whose
+    original keys it matches, and is added as a new combination if it matches none.
+    """
+    matrix = dict((strategy or {}).get("matrix") or {})
+    includes = matrix.pop("include", []) or []
+    excludes = matrix.pop("exclude", []) or []
+    combos: list[dict[str, Any]] = [{}]
+    for key, values in matrix.items():
+        combos = [dict(combo, **{key: value}) for combo in combos for value in values]
+    if not matrix:
+        combos = []
+    original_keys = set(matrix)
+    for entry in includes:
+        matching = [c for c in combos if all(c.get(k) == v for k, v in entry.items() if k in original_keys)]
+        if matching and any(k in original_keys for k in entry):
+            for combo in matching:
+                combo.update({k: v for k, v in entry.items() if k not in original_keys})
+        else:
+            combos.append(dict(entry))
+    combos = [c for c in combos if not any(all(c.get(k) == v for k, v in ex.items()) for ex in excludes)]
+    return combos or [{}]
+
+
+def render(value: Any, combo: dict[str, Any]) -> Any:
+    """Substitute ${{ matrix.<key> }} in a workflow input. A value that is only one expression keeps its type."""
+    if not isinstance(value, str):
+        return value
+    whole = _MATRIX_EXPRESSION.fullmatch(value.strip())
+    if whole:
+        return combo.get(whole.group(1), "")
+
+    def text(match: re.Match[str]) -> str:
+        found = combo.get(match.group(1), "")
+        return str(found).lower() if isinstance(found, bool) else str(found)
+
+    return _MATRIX_EXPRESSION.sub(text, value)
 
 
 class RegistryError(RuntimeError):
@@ -235,24 +288,56 @@ def discover_images(root: Path = REPO_ROOT) -> list[ImageSpec]:
         for job in (load_workflow(path).get("jobs") or {}).values():
             if job.get("uses") != REUSABLE_WORKFLOW_REF:
                 continue
-            inputs = job.get("with") or {}
-            context = str(inputs.get("context", ""))
-            if "${{" in context:
+            raw_inputs = job.get("with") or {}
+            if "${{" in str(raw_inputs.get("context", "")) and "matrix.context" in str(raw_inputs.get("context")):
                 continue  # image-refresh.yml itself, which calls the shared workflow from this script's output
-            dockerfile = (root / context / "Dockerfile").read_text(encoding="utf-8")
-            match = BASE_IMAGE_ARG.search(dockerfile)
-            if not match:
-                raise ValueError(f"{context}/Dockerfile doesn't declare the BASE_IMAGE argument (ADR 0008)")
-            overrides = json.loads(inputs.get("base-image-overrides") or "{}")
-            # An image's workflow can narrow the versions it builds (ADR 0008 exceptions); never publish the others
-            versions = json.loads(inputs.get("windows-versions") or json.dumps(list(WINDOWS_VERSIONS)))
-            bases = {
-                version: overrides.get(version, f"{MCR_PREFIX}windows/{match.group(1)}:ltsc{version}-amd64")
-                for version in WINDOWS_VERSIONS
-                if version in versions
-            }
-            specs.append(ImageSpec(context, str(inputs["image"]), path.name, bases))
+            # A caller with a matrix (for example one entry per Go version) is one spec per combination
+            for combo in matrix_combinations(job.get("strategy")):
+                inputs = {key: render(value, combo) for key, value in raw_inputs.items()}
+                context = str(inputs.get("context", ""))
+                dockerfile = (root / context / "Dockerfile").read_text(encoding="utf-8")
+                match = BASE_IMAGE_ARG.search(dockerfile)
+                if not match:
+                    raise ValueError(f"{context}/Dockerfile doesn't declare the BASE_IMAGE argument (ADR 0008)")
+                overrides = json.loads(inputs.get("base-image-overrides") or "{}")
+                # An image's workflow can narrow the versions it builds (ADR 0008 exceptions); never publish the others
+                versions = json.loads(inputs.get("windows-versions") or json.dumps(list(WINDOWS_VERSIONS)))
+                bases = {
+                    version: overrides.get(version, f"{MCR_PREFIX}windows/{match.group(1)}:ltsc{version}-amd64")
+                    for version in WINDOWS_VERSIONS
+                    if version in versions
+                }
+                plain = inputs.get("also-plain-tags", False)
+                specs.append(
+                    ImageSpec(
+                        context,
+                        str(inputs["image"]),
+                        path.name,
+                        bases,
+                        build_args=str(inputs.get("build-args") or "{}"),
+                        variant=str(inputs.get("variant") or ""),
+                        tag_prefix=str(inputs.get("tag-prefix") or ""),
+                        also_plain_tags=plain is True or str(plain).lower() == "true",
+                    )
+                )
+    check_variants(specs)
     return specs
+
+
+def check_variants(specs: list[ImageSpec]) -> None:
+    """Variants of one image must publish distinct tags, and exactly one of them owns the plain <ver> tags."""
+    by_image: dict[str, list[ImageSpec]] = {}
+    for spec in specs:
+        by_image.setdefault(spec.image, []).append(spec)
+    for image, group in by_image.items():
+        if len(group) == 1:
+            continue
+        prefixes = [s.tag_prefix for s in group]
+        if "" in prefixes or len(set(prefixes)) != len(prefixes):
+            raise ValueError(f"{image}: every variant needs its own non-empty tag-prefix, got {prefixes}")
+        owners = [s.tag_prefix for s in group if s.also_plain_tags]
+        if len(owners) != 1:
+            raise ValueError(f"{image}: exactly one variant must set also-plain-tags, got {owners or 'none'}")
 
 
 def git_changed_since(revision: str, context: str, root: Path = REPO_ROOT) -> bool:
@@ -318,7 +403,8 @@ def plan_refresh(
                 reason = "forced"
             else:
                 try:
-                    reason = rebuild_reason(registries.published_labels(spec.image, version), base, spec, changed_since)
+                    labels = registries.published_labels(spec.image, spec.published_tag(version))
+                    reason = rebuild_reason(labels, base, spec, changed_since)
                 except RegistryError as error:
                     warnings.append(f"{spec.image} {version}: rebuilding, published image unreadable: {error}")
                     reason = "unknown-published-state"
@@ -339,6 +425,10 @@ def plan_refresh(
                     # Strings, because build-windows-image.yml takes them as JSON-string inputs
                     "windows-versions": json.dumps(versions),
                     "base-image-overrides": json.dumps(pinned),
+                    "build-args": spec.build_args,
+                    "variant": spec.variant,
+                    "tag-prefix": spec.tag_prefix,
+                    "also-plain-tags": spec.also_plain_tags,
                     "reasons": reasons,
                     "os-versions": os_versions,
                 }
@@ -354,7 +444,8 @@ def summary_markdown(entries: list[dict[str, Any]], warnings: list[str] | None =
         lines += ["| Image | Windows | Reason | Base OS build |", "| --- | --- | --- | --- |"]
         for entry in entries:
             for version, reason in entry["reasons"].items():
-                lines.append(f"| `{entry['image']}` | {version} | {reason} | {entry['os-versions'][version]} |")
+                name = f"{entry['image']}:{entry['tag-prefix']}" if entry.get("tag-prefix") else entry["image"]
+                lines.append(f"| `{name}` | {version} | {reason} | {entry['os-versions'][version]} |")
     if warnings:
         lines += ["", "### Warnings", ""] + [f"- {warning}" for warning in warnings]
     return "\n".join(lines) + "\n"

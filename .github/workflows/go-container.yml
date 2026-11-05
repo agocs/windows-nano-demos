@@ -28,12 +28,18 @@ jobs:
       fail-fast: false
       matrix:
         # The latest patch of the three newest Go release lines. windows-deps-updater bumps these.
-        go-version: ['1.27.3', '1.26.10', '1.25.14']
+        # Each is published as windows-nano-go:<go>-<win> (ADR 0005). The newest also owns the plain :<win> tags.
+        include:
+          - {go-version: '1.27.3', variant: 'go1.27.3', tag-prefix: '1.27.3', also-plain-tags: true}
+          - {go-version: '1.26.10', variant: 'go1.26.10', tag-prefix: '1.26.10', also-plain-tags: false}
+          - {go-version: '1.25.14', variant: 'go1.25.14', tag-prefix: '1.25.14', also-plain-tags: false}
     uses: ./.github/workflows/build-windows-image.yml
     with:
       context: nano-server-go
       image: windows-nano-go
       build-args: '{"GO_VERSION": "${{ matrix.go-version }}"}'
-      variant: go${{ matrix.go-version }}
+      variant: ${{ matrix.variant }}
+      tag-prefix: ${{ matrix.tag-prefix }}
+      also-plain-tags: ${{ matrix.also-plain-tags }}
       # The algernon build in smoke-test.ps1 (issue #18) adds a few minutes per version
       timeout-minutes: 90

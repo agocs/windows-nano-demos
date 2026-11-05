@@ -40,7 +40,16 @@ build.cmd
 
 `GO_VERSION` picks the Go toolchain, for example `set GO_VERSION=1.25.14` before `build.cmd`. `build.cmd` then also tags the image `windows-nano-go:<go version>-<windows version>`.
 
-CI builds the latest patch of the three newest Go releases, currently 1.27.3, 1.26.10 and 1.25.14, on each of the three Windows versions: nine images. Every one compiles and runs a hello world module with its own Go. The algernon build in `smoke-test.ps1` needs the Go version from algernon's `go.mod` (1.27.3 for v1.17.12), so images with an older Go skip it and print why.
+CI builds the latest patch of the three newest Go releases, currently 1.27.3, 1.26.10 and 1.25.14, on each of the three Windows versions: nine images. Each is published on Docker Hub with its Go version as a tag prefix (ADR 0005):
+
+| Tag | What it is |
+| --- | --- |
+| `zippy1981/windows-nano-go:2025` | The newest Go (1.27.3) on ltsc2025. It moves when Go or the base image changes. |
+| `zippy1981/windows-nano-go:1.26.10-2025` | Go 1.26.10 on ltsc2025. |
+| `zippy1981/windows-nano-go:1.26.10-2025-<os-build>` and `:1.26.10-2025-YYYY-MM` | The same, pinned to a base image build or a month. |
+| `zippy1981/windows-nano-go:1.26.10-2025-<os-build>-<sha7>` | Immutable. |
+
+The same pattern applies to `2019` and `2022`. Every one compiles and runs a hello world module with its own Go. The algernon build in `smoke-test.ps1` needs the Go version from algernon's `go.mod` (1.27.3 for v1.17.12), so images with an older Go skip it and print why.
 
 ### Memory
 

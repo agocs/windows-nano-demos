@@ -96,6 +96,17 @@ Two plans look at filling Nano Server's gaps with open-source builds of the miss
 - **[ReactOS](https://reactos.org/)** ([plan, PR #9](https://github.com/zippy1981/windows-nano-demos/pull/9)): ReactOS releases are x86 only, which Nano Server can't run without WoW64, so the plan uses the x64 nightly builds. Those import `kernel32!__chkstk`, which Microsoft's x64 `kernel32.dll` doesn't export, so they fail with `0xC0000139`. A small shim DLL that forwards kernel32 and provides `__chkstk` made 20 of the 25 tools tried work.
 - **[Wine](https://gitlab.winehq.org/wine/wine)** ([plan, PR #11](https://github.com/zippy1981/windows-nano-demos/pull/11); implementation, [PR #21](https://github.com/zippy1981/windows-nano-demos/pull/21)): Wine builds its programs as PE files, and nine of them work unmodified on every Nano Server version. A build-time import check refuses any module that needs Wine's own core DLLs or a Unix library.
 
+## Helper scripts and skills
+
+[CLAUDE.md](CLAUDE.md) summarises the conventions for Claude Code sessions and agents. These scripts save time, and tokens, for people and agents alike:
+
+| Task | Script | Skill or agent |
+| --- | --- | --- |
+| What's open, what's running, which worktrees are dirty | `uv run python scripts/repo_status.py` | `repo-status` |
+| Why a PR or run failed | `uv run python scripts/ci_triage.py --pr <n>` | `ci-triage`, `ci-watcher` |
+| Merge conflicts in list-like files (the README image table) | `uv run python scripts/union_merge.py README.md` | `pr-shepherd` |
+| Remove an experiment's containers and images | `./scripts/Remove-DockerArtifacts.ps1 -Prefix <p> -WhatIf` | `safe-docker-cleanup` |
+
 ## Pre-commit hooks
 
 The repo has [pre-commit](https://pre-commit.com/) hooks that run before each commit:

@@ -24,10 +24,13 @@ This folder holds the [Claude Code subagents](https://docs.claude.com/en/docs/cl
 | `windows-image-publisher` | Pushes images to Docker Hub, only when explicitly asked. | haiku | PowerShell, Read |
 | `markdown-reviewer` | Read-only review of Markdown against the lint config. Hands fixes to `markdown-fixer`. | haiku | Bash, Read, Glob, Grep, Agent |
 | `markdown-fixer` | Fixes markdownlint errors by editing content. | haiku | Bash, Read, Edit, Glob, Grep |
+| `ci-watcher` | Waits for a run or a PR's checks to finish, then reports the outcome and, for failures, `scripts/ci_triage.py`'s compact output. | haiku | Bash, Read |
 
 ## How models were chosen
 
-- **haiku** for cheap, mechanical, or read-mostly work with a fixed procedure: running lint and fixing what it says, host diagnostics, a guarded `docker push`, and `planning`. Planning is haiku because it fills in a fixed template and hands real work to other agents. If its plans come out thin for a large design, ask `cicd-engineer` to draft the design and have `planning` turn it into a checklist.
+Model choice is the biggest lever on cost. Most tokens in this repo go on waiting for and reading CI, not on writing code, so that work goes to haiku.
+
+- **haiku** for cheap, mechanical, or read-mostly work with a fixed procedure: watching CI (`ci-watcher`), running lint or ruff and fixing what it says, host diagnostics, a guarded `docker push`, and `planning`. Planning is haiku because it fills in a fixed template and hands real work to other agents. If its plans come out thin for a large design, ask `cicd-engineer` to draft the design and have `planning` turn it into a checklist.
 - **sonnet** for authoring and building: writing Dockerfiles, workflows, scripts, ADRs, and running builds and tests, where correctness matters but each task is bounded.
 - **opus** for deep review and design, where missing something is expensive: `governance` (cross-cutting audit), `windows-dockerfile-reviewer` (subtle nanoserver failures), and `cicd-engineer` (security of self-hosted runners and the shape of the whole pipeline).
 

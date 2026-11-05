@@ -150,16 +150,33 @@ class TestReusableWorkflow:
         environment = normalize_expression(str(reusable_job.get("environment", "")))
         assert f"'{PUBLISH_ENVIRONMENT}'" in environment and "github.ref == 'refs/heads/main'" in environment
 
-    def test_labels_every_build_for_refresh_detection(self, reusable_job: dict) -> None:
-        build = next(s["run"] for s in reusable_job["steps"] if "docker build" in s.get("run", ""))
+    def test_labels_published_images_for_refresh_detection(self, reusable_job: dict) -> None:
+        publish = next(s["run"] for s in reusable_job["steps"] if "docker push" in s.get("run", ""))
         for label in ("org.opencontainers.image.revision", "org.opencontainers.image.base.digest"):
-            assert label in build, f"the build step must set the {label} label that image-refresh.yml reads"
+            assert label in publish, f"the publish step must set the {label} label that image-refresh.yml reads"
+
+    def test_build_step_adds_no_per_run_labels(self, reusable_job: dict) -> None:
+        # Per-run labels would give every run's image a new ID and break layer caching for images built FROM it
+        build = next(s["run"] for s in reusable_job["steps"] if "--memory" in s.get("run", ""))
+        assert "--label" not in build, "add labels in the publish step, not the build step"
+
+    def test_cleanup_keeps_the_layer_cache(self, reusable_job: dict) -> None:
+        removals = [
+            line for s in reusable_job["steps"] for line in s.get("run", "").splitlines() if "docker rmi" in line
+        ]
+        assert removals and all("--no-prune" in line for line in removals), (
+            "docker rmi without --no-prune deletes the untagged parent layers, which are the build cache"
+        )
 
     def test_builds_with_more_memory_and_the_version_argument(self, reusable_job: dict) -> None:
         builds = [s["run"] for s in reusable_job["steps"] if "docker build" in s.get("run", "")]
         assert builds, "no docker build step"
         assert all("--memory" in b for b in builds), "docker build needs --memory; Hyper-V's 1 GB default hangs builds"
-        assert all("WINDOWS_VERSION=${{ matrix.windows-version }}" in b for b in builds)
+        # The image build is the step that builds the image folder; the publish step's label build is FROM the tested image
+        image_builds = [
+            s["run"] for s in reusable_job["steps"] if s.get("working-directory") == "${{ inputs.context }}"
+        ]
+        assert image_builds and all("WINDOWS_VERSION=${{ matrix.windows-version }}" in b for b in image_builds)
 
     def test_runs_the_image_smoke_test(self, reusable_job: dict) -> None:
         assert any(SMOKE_TEST in s.get("run", "") for s in reusable_job["steps"])
@@ -254,3 +271,16 @@ class TestRefreshWorkflow:
     def test_publishes_only_from_main(self) -> None:
         refresh = jobs(workflows()[REFRESH_WORKFLOW])["refresh"]
         assert normalize_expression(str(refresh["with"]["publish"])) == "github.ref == 'refs/heads/main'"
+
+
+@pytest.mark.parametrize(("wf", "job_id", "job"), callers_of_reusable(), ids=lambda c: str(c))
+def test_image_workflows_cancel_superseded_pull_request_runs(wf: str, job_id: str, job: dict) -> None:
+    if wf == REFRESH_WORKFLOW:
+        return  # image-refresh.yml has its own concurrency group and must never cancel a publish
+    concurrency = workflows()[wf].get("concurrency") or {}
+    assert "github.event.pull_request.number" in str(concurrency.get("group", "")), (
+        f"{wf} needs a concurrency group per pull request, so a new push cancels the older runs"
+    )
+    assert (
+        normalize_expression(str(concurrency.get("cancel-in-progress", ""))) == "github.event_name == 'pull_request'"
+    ), f"{wf} must cancel in-progress runs only for pull requests, never for pushes to main"

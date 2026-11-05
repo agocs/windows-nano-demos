@@ -75,19 +75,8 @@ jobs:
             if ($arg.Key -in 'WINDOWS_VERSION', 'BASE_IMAGE') { throw "build-args can't set $($arg.Key); the matrix and base-image-overrides own it" }
             $buildArgs += @('--build-arg', "$($arg.Key)=$($arg.Value)")
           }
-          # OCI labels: image-refresh.yml compares base.digest and revision with MCR and git to decide what to rebuild
-          $labels = @{
-            'org.opencontainers.image.revision' = '${{ github.sha }}'
-            'org.opencontainers.image.source' = '${{ github.server_url }}/${{ github.repository }}'
-            'org.opencontainers.image.created' = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-            'org.opencontainers.image.title' = '${{ inputs.image }}'
-          }
-          if ($env:BASE_IMAGE) {
-            $name, $digest = $env:BASE_IMAGE -split '@', 2
-            $labels['org.opencontainers.image.base.name'] = $name
-            if ($digest) { $labels['org.opencontainers.image.base.digest'] = $digest }
-          }
-          foreach ($label in $labels.GetEnumerator()) { $buildArgs += @('--label', "$($label.Key)=$($label.Value)") }
+          # No per-run labels here. They would change the image ID on every run and break layer caching for anything built
+          # FROM this image, such as the smoke tests' derived images. The publish step adds the labels.
           # Hyper-V isolated builds default to 1 GB of memory, which hangs large extractions
           docker build --memory 4g @buildArgs -t $env:IMAGE .
           if ($LASTEXITCODE) { throw "docker build failed: $LASTEXITCODE" }
@@ -107,8 +96,26 @@ jobs:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           if (-not $env:DOCKERHUB_USERNAME -or -not $env:DOCKERHUB_TOKEN) { throw 'DOCKERHUB_USERNAME and DOCKERHUB_TOKEN must be set in the "Docker Hub zippy1981" environment' }
+          # OCI labels: image-refresh.yml compares base.digest and revision with MCR and git to decide what to rebuild.
+          # Added in a one-line build on top of the tested image, so the pushed layers are exactly the tested ones.
+          $labels = [ordered]@{
+            'org.opencontainers.image.revision' = '${{ github.sha }}'
+            'org.opencontainers.image.source' = '${{ github.server_url }}/${{ github.repository }}'
+            'org.opencontainers.image.created' = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+            'org.opencontainers.image.title' = '${{ inputs.image }}'
+          }
+          if ($env:BASE_IMAGE) {
+            $name, $digest = $env:BASE_IMAGE -split '@', 2
+            $labels['org.opencontainers.image.base.name'] = $name
+            if ($digest) { $labels['org.opencontainers.image.base.digest'] = $digest }
+          }
+          $labelArgs = foreach ($label in $labels.GetEnumerator()) { '--label'; "$($label.Key)=$($label.Value)" }
+          $labelled = "$env:IMAGE-labelled"
+          "FROM $env:IMAGE" | docker build --memory 4g @labelArgs -t $labelled -
+          if ($LASTEXITCODE) { throw "labelling failed: $LASTEXITCODE" }
+
           $version = '${{ matrix.windows-version }}'
-          $osBuild = docker image inspect $env:IMAGE --format '{{.OsVersion}}'
+          $osBuild = docker image inspect $labelled --format '{{.OsVersion}}'
           $repository = 'zippy1981/${{ inputs.image }}'
           # ADR 0005: moving :<ver>, :<ver>-<os-build> and :<ver>-YYYY-MM, plus an immutable :<ver>-<os-build>-<sha7>
           $tags = @(
@@ -124,7 +131,7 @@ jobs:
             $env:DOCKERHUB_TOKEN | docker login --username $env:DOCKERHUB_USERNAME --password-stdin
             if ($LASTEXITCODE) { throw "docker login failed: $LASTEXITCODE" }
             foreach ($tag in $tags) {
-              docker tag $env:IMAGE "${repository}:$tag"
+              docker tag $labelled "${repository}:$tag"
               docker push "${repository}:$tag"
               if ($LASTEXITCODE) { throw "docker push ${repository}:$tag failed: $LASTEXITCODE" }
               "Pushed ${repository}:$tag" | Tee-Object -Append -FilePath $env:GITHUB_STEP_SUMMARY
@@ -133,12 +140,14 @@ jobs:
           finally {
             docker logout | Out-Null
             Remove-Item -Recurse -Force $env:DOCKER_CONFIG
-            foreach ($tag in $tags) { docker rmi "${repository}:$tag" 2>$null | Out-Null }
+            foreach ($tag in $tags) { docker rmi --no-prune "${repository}:$tag" 2>$null | Out-Null }
+            docker rmi --no-prune $labelled 2>$null | Out-Null
           }
 
       - name: Cleanup
         if: always()
         run: |
           docker ps -a --filter "ancestor=$env:IMAGE" -q | ForEach-Object { docker rm -f $_ }
-          docker rmi -f $env:IMAGE
+          # --no-prune keeps the untagged parent layers, which are the build cache for the next run on this daemon
+          docker rmi -f --no-prune $env:IMAGE
           exit 0

@@ -350,3 +350,83 @@ def test_publish_step_retries_and_continues_after_a_failed_push() -> None:
     assert "Invoke-WithRetry" in publish, "pushes must be retried"
     assert "$failed +=" in publish, "a failed tag must be recorded and the loop must go on to the next tag"
     assert "| Out-Host" in publish, "the retried command's output must not become the function's return value"
+
+
+# --- Variant images (ADR 0005, amended) ---
+
+
+class TestMatrixExpansion:
+    def test_include_only(self) -> None:
+        combos = rm.matrix_combinations({"matrix": {"include": [{"go": "1"}, {"go": "2"}]}})
+        assert combos == [{"go": "1"}, {"go": "2"}]
+
+    def test_product_extended_by_include_and_reduced_by_exclude(self) -> None:
+        strategy = {
+            "matrix": {
+                "go": ["1", "2"],
+                "cgo": ["0", "1"],
+                "include": [{"go": "1", "prefix": "one"}, {"go": "3", "cgo": "0"}],
+                "exclude": [{"go": "2", "cgo": "1"}],
+            }
+        }
+        combos = rm.matrix_combinations(strategy)
+        assert {"go": "1", "cgo": "0", "prefix": "one"} in combos
+        assert {"go": "1", "cgo": "1", "prefix": "one"} in combos
+        assert {"go": "2", "cgo": "1"} not in combos
+        assert {"go": "3", "cgo": "0"} in combos
+
+    def test_no_strategy_is_one_combination(self) -> None:
+        assert rm.matrix_combinations(None) == [{}]
+
+    def test_render_keeps_the_type_of_a_whole_expression(self) -> None:
+        assert rm.render("${{ matrix.plain }}", {"plain": True}) is True
+        assert rm.render('{"GO_VERSION": "${{ matrix.go }}"}', {"go": "1.26.10"}) == '{"GO_VERSION": "1.26.10"}'
+        assert rm.render("x-${{ matrix.flag }}", {"flag": False}) == "x-false"
+
+
+def variant(prefix: str, plain: bool = False) -> rm.ImageSpec:
+    return rm.ImageSpec(
+        "nano-server-go",
+        "windows-nano-go",
+        "go-container.yml",
+        {"2025": "mcr.microsoft.com/windows/nanoserver:ltsc2025-amd64"},
+        build_args=f'{{"GO_VERSION": "{prefix}"}}',
+        variant=f"go{prefix}",
+        tag_prefix=prefix,
+        also_plain_tags=plain,
+    )
+
+
+class TestVariants:
+    def test_published_tag_has_the_prefix(self) -> None:
+        assert variant("1.26.10").published_tag("2025") == "1.26.10-2025"
+        assert SPEC.published_tag("2025") == "2025"
+
+    def test_go_is_discovered_as_one_spec_per_version(self) -> None:
+        go = [s for s in rm.discover_images() if s.image == "windows-nano-go"]
+        assert len(go) >= 3
+        assert sum(s.also_plain_tags for s in go) == 1
+        assert all(s.tag_prefix and s.tag_prefix in s.build_args for s in go)
+
+    def test_duplicate_prefixes_are_rejected(self) -> None:
+        with pytest.raises(ValueError, match="tag-prefix"):
+            rm.check_variants([variant("1.27.3", True), variant("1.27.3")])
+
+    def test_exactly_one_variant_owns_the_plain_tags(self) -> None:
+        with pytest.raises(ValueError, match="also-plain-tags"):
+            rm.check_variants([variant("1.27.3"), variant("1.26.10")])
+        with pytest.raises(ValueError, match="also-plain-tags"):
+            rm.check_variants([variant("1.27.3", True), variant("1.26.10", True)])
+
+    def test_detection_reads_each_variants_own_tag_and_passes_its_inputs(self) -> None:
+        seen: list[tuple[str, str]] = []
+
+        class Recording(FakeRegistries):
+            def published_labels(self, image: str, tag: str) -> dict[str, str] | None:
+                seen.append((image, tag))
+                return None
+
+        (entry,) = rm.plan_refresh([variant("1.26.10")], Recording({}), never_changed)
+        assert seen == [("windows-nano-go", "1.26.10-2025")]
+        assert entry["tag-prefix"] == "1.26.10" and entry["also-plain-tags"] is False
+        assert entry["variant"] == "go1.26.10" and json.loads(entry["build-args"]) == {"GO_VERSION": "1.26.10"}

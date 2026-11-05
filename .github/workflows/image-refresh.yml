@@ -72,6 +72,11 @@ jobs:
       image: ${{ matrix.image }}
       windows-versions: ${{ matrix.windows-versions }}
       base-image-overrides: ${{ matrix.base-image-overrides }}
+      # Variant images (ADR 0005): each variant is its own matrix entry from detect
+      build-args: ${{ matrix.build-args }}
+      variant: ${{ matrix.variant }}
+      tag-prefix: ${{ matrix.tag-prefix }}
+      also-plain-tags: ${{ matrix.also-plain-tags }}
       # The shared workflow also checks github.ref, so a dispatch on a branch builds and tests without pushing
       publish: ${{ github.ref == 'refs/heads/main' }}
       timeout-minutes: 120

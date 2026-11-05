@@ -309,3 +309,22 @@ def test_refresh_runs_on_push_to_main_and_on_a_schedule() -> None:
     triggers = workflows()[REFRESH_WORKFLOW]["on"]
     assert (triggers.get("push") or {}).get("branches") == ["main"], f"{REFRESH_WORKFLOW} must run on pushes to main"
     assert triggers.get("schedule"), f"{REFRESH_WORKFLOW} must keep its schedule for base image updates"
+
+
+class TestVariantPublishing:
+    def test_shared_workflow_takes_tag_prefix_and_also_plain_tags(self) -> None:
+        inputs = workflows()[REUSABLE_WORKFLOW]["on"]["workflow_call"]["inputs"]
+        assert inputs["tag-prefix"]["default"] == ""
+        assert inputs["also-plain-tags"]["default"] is False
+
+    def test_publish_step_prefixes_tags_for_variants(self) -> None:
+        (job,) = jobs(workflows()[REUSABLE_WORKFLOW]).values()
+        publish = next(s["run"] for s in job["steps"] if "docker push" in s.get("run", ""))
+        assert "inputs.tag-prefix" in publish and "inputs.also-plain-tags" in publish
+
+    def test_refresh_passes_every_variant_input_through(self) -> None:
+        refresh = jobs(workflows()[REFRESH_WORKFLOW])["refresh"]
+        for name in ("build-args", "variant", "tag-prefix", "also-plain-tags"):
+            assert normalize_expression(str(refresh["with"].get(name, ""))) == f"matrix.{name}", (
+                f"{REFRESH_WORKFLOW} must pass {name} from the detect matrix"
+            )

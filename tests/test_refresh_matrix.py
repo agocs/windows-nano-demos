@@ -214,3 +214,139 @@ def test_refresh_never_plans_a_version_an_image_doesnt_build() -> None:
     )
     (entry,) = rm.plan_refresh([spec], FakeRegistries({}), never_changed, force=True)
     assert json.loads(entry["windows-versions"]) == ["2022", "2025"]
+
+
+# --- Robustness (the first refresh runs failed on Docker Hub's 401 for repositories never pushed) ---
+
+HUB_TOKEN_URL = (
+    "https://auth.docker.io/token?service=registry.docker.io&scope=repository:zippy1981/windows-nano-far:pull"
+)
+HUB_MANIFEST_URL = "https://registry-1.docker.io/v2/zippy1981/windows-nano-far/manifests/2019"
+# What Docker Hub really returns for zippy1981/windows-nano-far, which has never been pushed
+NEVER_PUSHED = {
+    "errors": [
+        {
+            "code": "UNAUTHORIZED",
+            "message": "authentication required",
+            "detail": [{"Type": "repository", "Name": "zippy1981/windows-nano-far", "Action": "pull"}],
+        }
+    ]
+}
+
+
+def scripted_fetch(responses: dict[str, list[tuple[int, dict[str, str], object]]]) -> rm.Fetch:
+    """Each URL returns its queued responses in order; an exception in the queue is raised."""
+
+    def fetch(url: str, headers: dict[str, str]) -> tuple[int, dict[str, str], bytes]:
+        status, response_headers, body = responses[url].pop(0)
+        if isinstance(body, Exception):
+            raise body
+        return status, response_headers, json.dumps(body).encode()
+
+    return fetch
+
+
+def no_sleep(seconds: float) -> None:
+    pass
+
+
+def test_never_pushed_repository_counts_as_not_published() -> None:
+    registries = rm.Registries(
+        scripted_fetch({HUB_TOKEN_URL: [(200, {}, {"token": "t"})], HUB_MANIFEST_URL: [(401, {}, NEVER_PUSHED)]}),
+        sleep=no_sleep,
+    )
+    assert registries.published_labels("windows-nano-far", "2019") is None
+
+
+def test_other_401s_are_still_errors() -> None:
+    registries = rm.Registries(
+        scripted_fetch(
+            {
+                HUB_TOKEN_URL: [(200, {}, {"token": "t"})],
+                HUB_MANIFEST_URL: [(401, {}, {"errors": [{"code": "DENIED", "message": "nope"}]})],
+            }
+        ),
+        sleep=no_sleep,
+    )
+    with pytest.raises(rm.RegistryError):
+        registries.published_labels("windows-nano-far", "2019")
+
+
+def test_rate_limits_and_network_errors_are_retried() -> None:
+    sleeps: list[float] = []
+    registries = rm.Registries(
+        scripted_fetch(
+            {
+                HUB_TOKEN_URL: [(0, {}, OSError("connection reset")), (200, {}, {"token": "t"})],
+                HUB_MANIFEST_URL: [(429, {"retry-after": "3"}, {}), (404, {}, {})],
+            }
+        ),
+        sleep=sleeps.append,
+    )
+    assert registries.published_labels("windows-nano-far", "2019") is None
+    assert sleeps == [1, 3.0]
+
+
+def test_retries_give_up_after_the_last_attempt() -> None:
+    registries = rm.Registries(scripted_fetch({HUB_TOKEN_URL: [(503, {}, {})] * rm.RETRY_ATTEMPTS}), sleep=no_sleep)
+    with pytest.raises(rm.RegistryError, match="503"):
+        registries.published_labels("windows-nano-far", "2019")
+
+
+class FlakyRegistries(FakeRegistries):
+    def __init__(self, broken_bases: set[str] = frozenset(), broken_hub: set[str] = frozenset()) -> None:
+        super().__init__({})
+        self.broken_bases, self.broken_hub = broken_bases, broken_hub
+
+    def base(self, reference: str) -> rm.BaseImage:
+        if any(v in reference for v in self.broken_bases):
+            raise rm.RegistryError("MCR down")
+        return super().base(reference)
+
+    def published_labels(self, image: str, tag: str) -> dict[str, str] | None:
+        if tag in self.broken_hub:
+            raise rm.RegistryError("Docker Hub 500")
+        return current()
+
+
+def test_an_unreadable_published_image_is_rebuilt_not_fatal() -> None:
+    warnings: list[str] = []
+    (entry,) = rm.plan_refresh([SPEC], FlakyRegistries(broken_hub={"2022"}), never_changed, warnings=warnings)
+    assert entry["reasons"] == {"2022": "unknown-published-state"}
+    assert len(warnings) == 1 and "2022" in warnings[0]
+
+
+def test_a_failed_base_lookup_skips_only_that_leg() -> None:
+    warnings: list[str] = []
+    entries = rm.plan_refresh(
+        [SPEC], FlakyRegistries(broken_bases={"2019"}), never_changed, force=True, warnings=warnings
+    )
+    (entry,) = entries
+    assert json.loads(entry["windows-versions"]) == ["2022", "2025"]
+    assert "base image lookup failed" in warnings[0]
+
+
+def test_summary_lists_warnings() -> None:
+    assert "### Warnings" in rm.summary_markdown([], ["windows-nano-far 2019: skipped"])
+
+
+def test_a_failed_git_history_check_rebuilds_that_leg() -> None:
+    import subprocess
+
+    def broken_git(revision: str, context: str) -> bool:
+        raise subprocess.CalledProcessError(128, ["git", "log"])
+
+    warnings: list[str] = []
+    (entry,) = rm.plan_refresh([SPEC], FakeRegistries(all_current()), broken_git, warnings=warnings)
+    assert set(entry["reasons"].values()) == {"source-changed"}
+    assert len(warnings) == 3 and all("git history check failed" in w for w in warnings)
+
+
+def test_publish_step_retries_and_continues_after_a_failed_push() -> None:
+    from repo_conventions import REUSABLE_WORKFLOW, jobs, workflows
+
+    (job,) = jobs(workflows()[REUSABLE_WORKFLOW]).values()
+    publish = next(s["run"] for s in job["steps"] if "docker push" in s.get("run", ""))
+    assert "Invoke-WithRetry" in publish, "pushes must be retried"
+    assert "$failed +=" in publish, "a failed tag must be recorded and the loop must go on to the next tag"
+    assert "| Out-Host" in publish, "the retried command's output must not become the function's return value"

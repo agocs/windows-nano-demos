@@ -14,14 +14,15 @@ This folder holds the [Claude Code subagents](https://docs.claude.com/en/docs/cl
 | `container-author` | Writes and edits Dockerfiles and `build.cmd` for existing image folders. | sonnet | Read, Glob, Grep, Write, Edit, WebFetch |
 | `windows-demo-scaffolder` | Creates a whole new `nano-server-<stack>/` demo folder and wires it into the root README. | sonnet | Read, Write, Edit, Glob, Grep, Bash, WebFetch |
 | `powershell-author` | Writes PowerShell 7 scripts and modules with Pester tests, clean under PSScriptAnalyzer. | sonnet | Read, Glob, Grep, Write, Edit, PowerShell |
-| `python-author` | Writes Python tools and the convention tests under `tests/` with uv (Python version from `UV_PYTHON`), PyYAML and pytest. | sonnet | Read, Glob, Grep, Write, Edit, Bash |
+| `python-author` | Writes Python tools and the convention tests under `tests/` with uv (Python version from `UV_PYTHON`), PyYAML and pytest. Hands formatting to `python-fixer`. | sonnet | Read, Glob, Grep, Write, Edit, Bash, Agent |
+| `python-fixer` | Runs ruff format and ruff check --fix, fixes what's left by hand without changing behaviour, then re-runs the tests. | haiku | Bash, Read, Edit, Glob, Grep |
 | `windows-container-builder` | Builds and tags images for ltsc2019, ltsc2022, and ltsc2025. | sonnet | PowerShell, Read, Glob, Grep |
 | `windows-container-tester` | Smoke-tests built images by running their tools. | sonnet | PowerShell, Read, Glob, Grep |
 | `windows-deps-updater` | Finds and applies newer tool versions pinned in Dockerfiles. | sonnet | Read, Edit, Glob, Grep, Bash, WebFetch |
 | `windows-dockerfile-reviewer` | Read-only review of Dockerfiles and build scripts for nanoserver pitfalls. | opus | Read, Glob, Grep |
 | `windows-host-doctor` | Diagnoses the host's container setup when builds fail for environmental reasons. | haiku | PowerShell, Read, Glob, Grep |
 | `windows-image-publisher` | Pushes images to Docker Hub, only when explicitly asked. | haiku | PowerShell, Read |
-| `markdown-reviewer` | Read-only review of Markdown against the lint config. | haiku | Bash, Read, Glob, Grep |
+| `markdown-reviewer` | Read-only review of Markdown against the lint config. Hands fixes to `markdown-fixer`. | haiku | Bash, Read, Glob, Grep, Agent |
 | `markdown-fixer` | Fixes markdownlint errors by editing content. | haiku | Bash, Read, Edit, Glob, Grep |
 
 ## How models were chosen
@@ -32,7 +33,8 @@ This folder holds the [Claude Code subagents](https://docs.claude.com/en/docs/cl
 
 ## How tools were chosen
 
-- Reviewers and auditors (`governance`, `windows-dockerfile-reviewer`) have no shell and no write tools, so they can't change anything. `markdown-reviewer` keeps Bash only to run markdownlint.
+- Reviewers and auditors (`governance`, `windows-dockerfile-reviewer`) have no shell and no write tools, so they can't change anything. `markdown-reviewer` keeps Bash only to run markdownlint, and has no Edit tool: it changes files only through `markdown-fixer`.
+- The fixers (`markdown-fixer`, `python-fixer`) are haiku with Edit and Bash. They run the formatter or linter and make mechanical fixes, and never change behaviour.
 - Agents that drive docker on Windows get PowerShell only, not both shells.
 - `planning` and `adr` can write, but their prompts restrict them to `plans/` and `docs/adr/`. That is enforced by the prompt, not by Claude Code, so `governance` checks it.
 
@@ -50,7 +52,8 @@ windows-demo-scaffolder / container-author / windows-deps-updater
              ──► windows-dockerfile-reviewer ──► windows-container-builder ──► windows-container-tester
                  ──► windows-image-publisher (only when the user asks)
 markdown-reviewer ──► markdown-fixer
+python-author ──► python-fixer (ruff)
 governance ──► report only (the caller dispatches fixes)
 ```
 
-`planning` is the only agent with the Agent tool. Claude Code subagents can't start other subagents, so when `planning` runs as a subagent it returns the plan with an owner on every task, and the main conversation dispatches them. Every other hand-off is a recommendation in the agent's report.
+`planning`, `markdown-reviewer` and `python-author` have the Agent tool, so they can start the agents they hand off to. Claude Code subagents can't start other subagents, though, so this only works when they run as the main agent. Running as a subagent, `planning` returns the plan with an owner on every task, `markdown-reviewer` ends its report by naming the files for `markdown-fixer`, and `python-author` runs ruff itself. Every other hand-off is a recommendation in the agent's report.

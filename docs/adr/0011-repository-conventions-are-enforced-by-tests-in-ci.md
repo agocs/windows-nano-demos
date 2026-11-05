@@ -34,3 +34,10 @@ A pytest suite under `tests/`, run with uv as described in [0010](0010-python-to
 - **actionlint and hadolint only.** They catch syntax and generic mistakes but know nothing about this repo's rules, such as the runner labels, the fork guard or the version default.
 - **Rely on the governance agent.** It is useful for audits but runs only on request. Tests run on every change.
 - **A PowerShell Pester suite.** Pester runs on the Windows runners, but YAML parsing in pwsh needs a third-party module. Tests on the Linux hosted runners also keep convention checks off the self-hosted machine.
+
+## Amendment (2026-11-06): coverage
+
+- The tests must cover at least 95% of `scripts/`. `fail_under` in `pyproject.toml` enforces it in the `Repo tests` workflow and the pre-commit hook, and that is the gate that blocks a merge.
+- Tests over repo items (images, workflows, steps, badges) are parametrized, so each item passes or fails on its own.
+- Coverage and test results are uploaded to Codecov ([plans/codecov.md](../../plans/codecov.md)), which reports project and patch coverage on pull requests. Its checks are informational.
+- No workflow uses `pull_request_target`, and `CODECOV_TOKEN` is passed only to the Codecov upload action. Tests in `tests/test_workflows.py` enforce both.

@@ -339,3 +339,35 @@ class TestVariantPublishing:
         assert normalize_expression(str(refresh["with"].get(name, ""))) == f"matrix.{name}", (
             f"{REFRESH_WORKFLOW} must pass {name} from the detect matrix"
         )
+
+
+# plans/codecov.md: fork code never runs with secrets, and the Codecov token goes only to the Codecov upload steps
+@pytest.mark.parametrize("path", workflow_paths(), ids=lambda p: p.name)
+def test_no_workflow_uses_pull_request_target(path) -> None:
+    assert "pull_request_target" not in workflows()[path.name]["on"], (
+        f"{path.name} uses pull_request_target, which runs fork code with the repository's secrets"
+    )
+
+
+CODECOV_TOKEN_STEPS = [
+    (wf, job_id, step)
+    for wf, job_id, job in JOBS
+    for step in job.get("steps", [])
+    if "CODECOV_TOKEN" in json.dumps(step)
+]
+
+
+def test_the_codecov_token_is_used() -> None:
+    assert CODECOV_TOKEN_STEPS, "no step uploads to Codecov with CODECOV_TOKEN"
+
+
+@pytest.mark.parametrize(
+    ("wf", "job_id", "step"), CODECOV_TOKEN_STEPS, ids=[f"{w}:{j}:{s.get('name')}" for w, j, s in CODECOV_TOKEN_STEPS]
+)
+def test_the_codecov_token_goes_only_to_the_codecov_action(wf: str, job_id: str, step: dict) -> None:
+    assert str(step.get("uses", "")).startswith("codecov/codecov-action@"), (
+        f"{wf}:{job_id} step {step.get('name')!r} reads CODECOV_TOKEN but isn't the Codecov upload"
+    )
+    assert "CODECOV_TOKEN" not in json.dumps(step.get("env", {})) + str(step.get("run", "")), (
+        f"{wf}:{job_id} must pass CODECOV_TOKEN only as the action's token input"
+    )

@@ -1,0 +1,26 @@
+# Codecov settings (plans/codecov.md). The 95% gate that blocks merges is fail_under in pyproject.toml; these checks
+# report on top of it and stay informational until the owner decides whether codecov/patch becomes required.
+coverage:
+  status:
+    project:
+      default:
+        target: 95%
+        threshold: 0.5%
+        informational: true
+    patch:
+      default:
+        target: 90%
+        informational: true
+
+comment:
+  layout: "condensed_header, diff, files"
+  require_changes: true
+
+ignore:
+  - "tests/**"
+
+flags:
+  python:
+    paths:
+      - scripts/
+    carryforward: true

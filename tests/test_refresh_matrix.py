@@ -328,3 +328,25 @@ def test_a_failed_base_lookup_skips_only_that_leg() -> None:
 
 def test_summary_lists_warnings() -> None:
     assert "### Warnings" in rm.summary_markdown([], ["windows-nano-far 2019: skipped"])
+
+
+def test_a_failed_git_history_check_rebuilds_that_leg() -> None:
+    import subprocess
+
+    def broken_git(revision: str, context: str) -> bool:
+        raise subprocess.CalledProcessError(128, ["git", "log"])
+
+    warnings: list[str] = []
+    (entry,) = rm.plan_refresh([SPEC], FakeRegistries(all_current()), broken_git, warnings=warnings)
+    assert set(entry["reasons"].values()) == {"source-changed"}
+    assert len(warnings) == 3 and all("git history check failed" in w for w in warnings)
+
+
+def test_publish_step_retries_and_continues_after_a_failed_push() -> None:
+    from repo_conventions import REUSABLE_WORKFLOW, jobs, workflows
+
+    (job,) = jobs(workflows()[REUSABLE_WORKFLOW]).values()
+    publish = next(s["run"] for s in job["steps"] if "docker push" in s.get("run", ""))
+    assert "Invoke-WithRetry" in publish, "pushes must be retried"
+    assert "$failed +=" in publish, "a failed tag must be recorded and the loop must go on to the next tag"
+    assert "| Out-Host" in publish, "the retried command's output must not become the function's return value"

@@ -322,6 +322,10 @@ def plan_refresh(
                 except RegistryError as error:
                     warnings.append(f"{spec.image} {version}: rebuilding, published image unreadable: {error}")
                     reason = "unknown-published-state"
+                except (subprocess.CalledProcessError, OSError) as error:
+                    # The git history check failed (for example a shallow clone): rebuilding is the safe answer
+                    warnings.append(f"{spec.image} {version}: rebuilding, git history check failed: {error}")
+                    reason = "source-changed"
             if reason:
                 versions.append(version)
                 pinned[version] = base.pinned

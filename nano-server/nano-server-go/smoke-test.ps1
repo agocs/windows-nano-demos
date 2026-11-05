@@ -6,7 +6,7 @@ It clones and builds algernon (https://github.com/xyproto/algernon) inside the i
 curl from inside the container. algernon's go.mod needs a minimum Go, and the image sets GOTOOLCHAIN=local, so images with
 an older Go skip that part and say so rather than downloading a newer toolchain.
 .EXAMPLE
-./nano-server-go/smoke-test.ps1 -Image windows-nano-go:2025
+./nano-server/nano-server-go/smoke-test.ps1 -Image windows-nano-go:2025
 #>
 param(
     [Parameter(Mandatory)][string]$Image,

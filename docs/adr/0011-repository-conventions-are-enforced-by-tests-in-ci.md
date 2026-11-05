@@ -15,7 +15,7 @@ A pytest suite under `tests/`, run with uv as described in [0010](0010-python-to
 
 - **Runner:** every job that runs `docker` uses the self-hosted runner labels `[self-hosted, windows, docker]` from [0003](0003-self-hosted-nanoserver-runners-using-host-docker-daemon-via-named-pipe.md). Any job on those labels has the fork guard and a `timeout-minutes`. Jobs that don't use docker run on GitHub-hosted runners.
 - **Reusable workflow:** it keeps the runner labels, the `2019`, `2022`, `2025` matrix with `fail-fast: false`, `--memory` on `docker build`, and an `always()` cleanup step.
-- **Images:** every top-level folder with a `Dockerfile`:
+- **Images:** every image folder with a `Dockerfile` (under `nano-server/` or `server-core/`, [0012](0012-images-live-in-a-directory-for-their-base-image.md)):
   - has a caller workflow that uses the reusable workflow with `context` set to that folder
   - lists the folder and the reusable workflow in its path filters
   - has a `smoke-test.ps1`

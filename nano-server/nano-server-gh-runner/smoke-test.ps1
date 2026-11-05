@@ -2,7 +2,7 @@
 .SYNOPSIS
 Smoke tests a built windows-nano-gh-runner image: pwsh, the powershell.exe stand-in, git (including submodule, which needs sh), the docker CLI and the runner.
 .EXAMPLE
-./nano-server-gh-runner/smoke-test.ps1 -Image windows-nano-gh-runner:2025
+./nano-server/nano-server-gh-runner/smoke-test.ps1 -Image windows-nano-gh-runner:2025
 #>
 param(
     [Parameter(Mandatory)][string]$Image

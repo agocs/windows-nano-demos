@@ -2,7 +2,7 @@
 .SYNOPSIS
 Smoke tests a built windows-nano-rust image by compiling and running a hello world crate. Throws on failure.
 .EXAMPLE
-./nano-server-rust/smoke-test.ps1 -Image windows-nano-rust:2025
+./nano-server/nano-server-rust/smoke-test.ps1 -Image windows-nano-rust:2025
 #>
 param(
     [Parameter(Mandatory)][string]$Image

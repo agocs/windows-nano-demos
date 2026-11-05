@@ -2,7 +2,7 @@
 
 [Far Manager](https://www.farmanager.com/) 3.0 build 6699 x64 (the current stable build) in a Windows container, on the `PATH` as `far`.
 
-**This image is based on Windows Server Core, not Nano Server.** The folder keeps the `nano-server-*` name to match the rest of the repo. Far needs desktop Win32 DLLs that Nano Server doesn't have, so the image is a lot bigger than the other ones here. See [Why not nanoserver](#why-not-nanoserver).
+**This image is based on Windows Server Core, not Nano Server.** It lives under `server-core/` and is published as `zippy1981/windows-servercore-far`. Far needs desktop Win32 DLLs that Nano Server doesn't have, so the image is a lot bigger than the other ones here. See [Why not nanoserver](#why-not-nanoserver).
 
 ## Building
 
@@ -28,23 +28,23 @@ build.cmd
 
 `build.cmd` also passes `BASE_IMAGE` through to `docker build` when it's set. The default is `mcr.microsoft.com/windows/servercore:ltsc%WINDOWS_VERSION%-amd64`.
 
-There are no host DLLs to stage. Far links the C runtime statically, so it doesn't need `vcruntime140.dll`. Far ships only as `.7z` and `.msi`, and Windows Server's `tar.exe` can't unpack the `.7z` (`tar: LZMA codec is unsupported`). So the Dockerfile downloads the standalone `7zr.exe` 26.05 from the 7-Zip GitHub releases, extracts Far with it, and then deletes it. Unlike `nano-server-php`, you don't need 7-Zip installed on the host.
+There are no host DLLs to stage. Far links the C runtime statically, so it doesn't need `vcruntime140.dll`. Far ships only as `.7z` and `.msi`, and Windows Server's `tar.exe` can't unpack the `.7z` (`tar: LZMA codec is unsupported`). So the Dockerfile downloads the standalone `7zr.exe` 26.05 from the 7-Zip GitHub releases, extracts Far with it, and then deletes it. Unlike `nano-server/nano-server-php`, you don't need 7-Zip installed on the host.
 
 ## Running
 
 Far is a full-screen console app, so give it a TTY:
 
 ```cmd
-docker run -it --rm windows-nano-far:2022 far
+docker run -it --rm windows-servercore-far:2022 far
 ```
 
 Press F10 to quit. Far keeps its settings in `C:\Users\ContainerUser\AppData\Roaming\Far Manager\Profile`, and they're lost when the container is removed. To keep them, mount a volume there.
 
 ## Testing
 
-Two tests, both run in CI by [`.github/workflows/far-manager.yml`](../.github/workflows/far-manager.yml) for ltsc2019, ltsc2022 and ltsc2025:
+Two tests, both run in CI by [`.github/workflows/far-manager.yml`](../../.github/workflows/far-manager.yml) for ltsc2019, ltsc2022 and ltsc2025:
 
-1. **It loads.** `docker run --rm windows-nano-far:2022 "far.exe -?"` prints the usage text (`Far Manager, version 3.0.6699.0 x64` ...) and exits with 0. This works with or without `-t`.
+1. **It loads.** `docker run --rm windows-servercore-far:2022 "far.exe -?"` prints the usage text (`Far Manager, version 3.0.6699.0 x64` ...) and exits with 0. This works with or without `-t`.
 2. **It really runs.** The [`test`](test) folder is copied into a created container with `docker cp`, so no bind mount is needed. The container is then started with `-t`, and the steps are:
     1. [`run-test.cmd`](test/run-test.cmd) starts `far.exe -s <test profile> -set:Confirmations.Exit=false`.
     2. The profile has a LuaMacro [autorun macro](test/profile/Macros/scripts/autotest.lua) (`flags = "RunAfterFARStart"`). It writes Far's version, PID, console size and active panel to `macro.txt`.
@@ -54,7 +54,7 @@ Two tests, both run in CI by [`.github/workflows/far-manager.yml`](../.github/wo
 To run the second test by hand:
 
 ```pwsh
-docker create -t --name far-test windows-nano-far:2022 "C:\Users\ContainerUser\far-test\run-test.cmd"
+docker create -t --name far-test windows-servercore-far:2022 "C:\Users\ContainerUser\far-test\run-test.cmd"
 docker cp test "far-test:C:\Users\ContainerUser\far-test"
 docker start -a far-test
 docker inspect -f '{{.State.ExitCode}}' far-test

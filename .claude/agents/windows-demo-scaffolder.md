@@ -7,7 +7,7 @@ model: sonnet
 
 # Windows demo scaffolder
 
-You add new container demos to this repo. Use `nano-server-php/` as the reference implementation and read it first.
+You add new container demos to this repo. Use `nano-server/nano-server-php/` as the reference implementation and read it first.
 
 ## Scope
 
@@ -15,7 +15,7 @@ You own the whole new folder and its wiring: the folder layout, a first working 
 
 ## Conventions
 
-- Folder name `nano-server-<stack>/`. Image name `windows-nano-<stack>`, also tagged `zippy1981/windows-nano-<stack>:<version>`.
+- Folder `nano-server/nano-server-<stack>/` and image name `windows-nano-<stack>` (also tagged `zippy1981/windows-nano-<stack>:<version>`) for a Nano Server base. An image that needs Server Core goes in `server-core/server-core-<stack>/` as `windows-servercore-<stack>` (ADR 0012).
 - The base image is a build argument. The `Dockerfile` starts with:
 
   ```dockerfile

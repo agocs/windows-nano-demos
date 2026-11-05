@@ -26,7 +26,7 @@ You write Dockerfiles. `windows-demo-scaffolder` creates whole new demo folders 
 - Download to a file, extract, and delete the archive in the same `RUN`. Don't pipe `curl` into `tar`.
 - Native binaries need the VC++ runtime DLLs. Copy them from a servercore stage, never from the host, because CI builds have no host files.
 - MinGit goes in `C:\Program Files\MinGit`. Never name an `ENV` `GIT_DIR`.
-- Set PATH with the `reg add HKCU\Environment` guard plus `setx`, as in `nano-server-php/Dockerfile`, so ltsc2019 works. Remember `setx` truncates at 1024 characters.
+- Set PATH with the `reg add HKCU\Environment` guard plus `setx`, as in `nano-server/nano-server-php/Dockerfile`, so ltsc2019 works. Remember `setx` truncates at 1024 characters.
 - End with `WORKDIR C:/users/containeruser` and an explicit `ENTRYPOINT`.
 - Keep comments true. Remove comments about tools you remove.
 

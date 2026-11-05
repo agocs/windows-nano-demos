@@ -2,7 +2,7 @@
 .SYNOPSIS
 Smoke tests a built windows-nano-ssh image: a normal user with password and key auth, then an administrator with key auth only.
 .EXAMPLE
-./nano-server-ssh/smoke-test.ps1 -Image windows-nano-ssh:2025
+./nano-server/nano-server-ssh/smoke-test.ps1 -Image windows-nano-ssh:2025
 #>
 param(
     [Parameter(Mandatory)][string]$Image

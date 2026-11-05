@@ -9,7 +9,7 @@ It prints a JSON list with one entry per image that needs work, in the shape tha
 build-windows-image.yml. The base image is pinned to the detected digest, so the build uses exactly what was detected
 even if MCR moves the tag mid-run (ADR 0004).
 
-    uv run python scripts/refresh_matrix.py [--force] [--images nano-server-php,nano-server-go] [--github-output]
+    uv run python scripts/refresh_matrix.py [--force] [--images nano-server/nano-server-php,nano-server/nano-server-go] [--github-output]
 """
 
 from __future__ import annotations

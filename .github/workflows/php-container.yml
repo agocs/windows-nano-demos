@@ -5,13 +5,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'nano-server-php/**'
+      - 'nano-server/nano-server-php/**'
       - '.github/workflows/php-container.yml'
       - '.github/workflows/build-windows-image.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'nano-server-php/**'
+      - 'nano-server/nano-server-php/**'
       - '.github/workflows/php-container.yml'
       - '.github/workflows/build-windows-image.yml'
   workflow_dispatch:
@@ -25,5 +25,5 @@ jobs:
   build:
     uses: ./.github/workflows/build-windows-image.yml
     with:
-      context: nano-server-php
+      context: nano-server/nano-server-php
       image: windows-nano-php

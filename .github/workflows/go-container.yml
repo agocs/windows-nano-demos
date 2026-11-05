@@ -6,13 +6,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'nano-server-go/**'
+      - 'nano-server/nano-server-go/**'
       - '.github/workflows/go-container.yml'
       - '.github/workflows/build-windows-image.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'nano-server-go/**'
+      - 'nano-server/nano-server-go/**'
       - '.github/workflows/go-container.yml'
       - '.github/workflows/build-windows-image.yml'
   workflow_dispatch:
@@ -35,7 +35,7 @@ jobs:
           - {go-version: '1.25.14', variant: 'go1.25.14', tag-prefix: '1.25.14', also-plain-tags: false}
     uses: ./.github/workflows/build-windows-image.yml
     with:
-      context: nano-server-go
+      context: nano-server/nano-server-go
       image: windows-nano-go
       build-args: '{"GO_VERSION": "${{ matrix.go-version }}"}'
       variant: ${{ matrix.variant }}

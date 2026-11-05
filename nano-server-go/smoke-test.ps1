@@ -59,7 +59,8 @@ WORKDIR C:/users/containeruser
 RUN git clone --depth 1 --branch $AlgernonVersion https://github.com/xyproto/algernon
 # Modules in their own layer: the daemon reuses it on later runs while algernon's go.mod is unchanged
 RUN cd algernon && go mod download
-RUN cd algernon && go build -o C:\users\containeruser\algernon.exe .
+# -buildvcs=false: the clone is in an earlier layer, and git won't report VCS status there for Go's version stamp
+RUN cd algernon && go build -buildvcs=false -o C:\users\containeruser\algernon.exe .
 RUN mkdir C:\users\containeruser\site && echo algernon-ok> C:\users\containeruser\site\index.html
 "@
     docker run -d --name $algernonContainer $algernonImage "C:\users\containeruser\algernon.exe --httponly --server --nobanner --addr :3000 C:\users\containeruser\site" | Out-Null

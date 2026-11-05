@@ -5,13 +5,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'nano-server-rust/**'
+      - 'nano-server/nano-server-rust/**'
       - '.github/workflows/rust-container.yml'
       - '.github/workflows/build-windows-image.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'nano-server-rust/**'
+      - 'nano-server/nano-server-rust/**'
       - '.github/workflows/rust-container.yml'
       - '.github/workflows/build-windows-image.yml'
   workflow_dispatch:
@@ -25,5 +25,5 @@ jobs:
   build:
     uses: ./.github/workflows/build-windows-image.yml
     with:
-      context: nano-server-rust
+      context: nano-server/nano-server-rust
       image: windows-nano-rust

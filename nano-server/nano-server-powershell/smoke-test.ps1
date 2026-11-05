@@ -2,7 +2,7 @@
 .SYNOPSIS
 Smoke tests a built windows-nano-powershell image: tests/smoke.ps1 runs inside it, then checks that the default command is pwsh.
 .EXAMPLE
-./nano-server-powershell/smoke-test.ps1 -Image windows-nano-powershell:2025
+./nano-server/nano-server-powershell/smoke-test.ps1 -Image windows-nano-powershell:2025
 #>
 param(
     [Parameter(Mandatory)][string]$Image

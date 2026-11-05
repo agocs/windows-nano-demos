@@ -56,9 +56,9 @@ When steps 1 to 5 don't produce a working Nano Server image, set the image's def
 
 | Image | Missing on Nano Server | How we found it | Fix |
 | --- | --- | --- | --- |
-| PHP ([README](nano-server-php/README.md)) | `vcruntime140.dll`, `vcruntime140_1.dll`, `msvcp140.dll` | PHP and its extensions import the Visual C++ runtime. | Server Core doesn't ship it either, so a Server Core stage installs the [VC++ redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) and the image copies the three DLLs. |
+| PHP ([README](nano-server/nano-server-php/README.md)) | `vcruntime140.dll`, `vcruntime140_1.dll`, `msvcp140.dll` | PHP and its extensions import the Visual C++ runtime. | Server Core doesn't ship it either, so a Server Core stage installs the [VC++ redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) and the image copies the three DLLs. |
 | PHP | `where.exe` | The smoke test's `where micro` failed. | `where.exe` and `en-US\where.exe.mui` are copied from the Server Core stage. |
-| SSH ([README](nano-server-ssh/README.md)) | `netapi32.dll`, `whoami.exe` | `sshd.exe`, `sshd-session.exe` and `ssh.exe` exited with `0xC0000135`, and their imports include `netapi32.dll`. | Both are copied from a Server Core stage of the same version. [Win32-OpenSSH](https://github.com/PowerShell/Win32-OpenSSH) then runs, as a LocalSystem service so it can create user tokens. |
+| SSH ([README](nano-server/nano-server-ssh/README.md)) | `netapi32.dll`, `whoami.exe` | `sshd.exe`, `sshd-session.exe` and `ssh.exe` exited with `0xC0000135`, and their imports include `netapi32.dll`. | Both are copied from a Server Core stage of the same version. [Win32-OpenSSH](https://github.com/PowerShell/Win32-OpenSSH) then runs, as a LocalSystem service so it can create user tokens. |
 | MySQL ([draft PR #33](https://github.com/zippy1981/windows-nano-demos/pull/33)) | The same three VC++ runtime DLLs, plus `icacls.exe` | `mysqld` imports the Visual C++ runtime. The entrypoint's `icacls` call failed because Nano Server has no `icacls`. | The same Server Core redistributable stage as PHP. `icacls` turned out not to be needed, because a folder created under `C:` is already writable by ContainerUser. MySQL 8.4 runs as ContainerUser on ltsc2019, ltsc2022 and ltsc2025. |
 | Caddy artifact cache ([PR #31](https://github.com/zippy1981/windows-nano-demos/pull/31)) | `certutil.exe` and `certoc.exe` | Neither exists on Nano Server ltsc2025. | The cache's root CA is imported by writing the certificate to the registry, under `HKLM\SOFTWARE\Microsoft\SystemCertificates\ROOT`. |
 
@@ -66,8 +66,8 @@ When steps 1 to 5 don't produce a working Nano Server image, set the image's def
 
 | Image | What failed on Nano Server | Why we stopped |
 | --- | --- | --- |
-| Far Manager ([README](nano-server-far/README.md)) | `far.exe -?` exits with `0xC0000135`. Far statically imports `WINSPOOL.DRV`, `COMDLG32`, `SHELL32`, `SETUPAPI`, `IMM32`, `VERSION`, `NETAPI32` and `PSAPI`. | After copying those and their dependencies from Server Core, the error became `0xC0000139`. Nano Server's own core DLLs lack exports that the desktop DLLs need, so the copied DLLs can't run on it. The image is Server Core for every version. |
-| SSH on ltsc2025 only ([README](nano-server-ssh/README.md)) | sshd runs, but every local-account logon fails in LSA: [`LsaLogonUser`](https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-lsalogonuser) S4U returns `0xC00000DF` (`STATUS_NO_SUCH_DOMAIN`), and `LogonUser` fails with error 1355. | The computer name and the local SAM look right, and copying the LSA-related DLLs from Server Core didn't help. ltsc2019 and ltsc2022 stay on Nano Server, and 2025 uses Server Core through `base-image-overrides`. The root cause is still unknown. |
+| Far Manager ([README](server-core/server-core-far/README.md)) | `far.exe -?` exits with `0xC0000135`. Far statically imports `WINSPOOL.DRV`, `COMDLG32`, `SHELL32`, `SETUPAPI`, `IMM32`, `VERSION`, `NETAPI32` and `PSAPI`. | After copying those and their dependencies from Server Core, the error became `0xC0000139`. Nano Server's own core DLLs lack exports that the desktop DLLs need, so the copied DLLs can't run on it. The image is Server Core for every version. |
+| SSH on ltsc2025 only ([README](nano-server/nano-server-ssh/README.md)) | sshd runs, but every local-account logon fails in LSA: [`LsaLogonUser`](https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-lsalogonuser) S4U returns `0xC00000DF` (`STATUS_NO_SUCH_DOMAIN`), and `LogonUser` fails with error 1355. | The computer name and the local SAM look right, and copying the LSA-related DLLs from Server Core didn't help. ltsc2019 and ltsc2022 stay on Nano Server, and 2025 uses Server Core through `base-image-overrides`. The root cause is still unknown. |
 
 ### Version-specific findings
 
@@ -144,5 +144,5 @@ The hooks are configured in [.pre-commit-config.yaml](.pre-commit-config.yaml). 
   - [README](README.md): the list of images
   - [ADRs](docs/adr/README.md)
   - [Patch Tuesday plan](plans/patch-tuesday-image-refresh.md)
-  - each image's README under `nano-server-*/`
+  - each image's README under `nano-server/` and `server-core/`
   - the [agents](.claude/agents/README.md)

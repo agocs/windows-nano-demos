@@ -5,7 +5,7 @@ Smoke tests a built windows-nano-mysql image. Throws on the first failure.
 Starts a server container, talks to it from a second container over the container network,
 and restarts it to check the data survives. Removes only the containers and volumes it creates, by name.
 .EXAMPLE
-./nano-server-mysql/smoke-test.ps1 -Image windows-nano-mysql:2025
+./nano-server/nano-server-mysql/smoke-test.ps1 -Image windows-nano-mysql:2025
 #>
 param(
     [Parameter(Mandatory)][string]$Image

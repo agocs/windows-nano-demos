@@ -12,7 +12,7 @@ This folder holds the [Claude Code subagents](https://docs.claude.com/en/docs/cl
 | `cicd-engineer` | Designs the CI/CD system: runner fleet and image, matrices, schedules, publishing, cleanup, secrets. | opus | Read, Glob, Grep, Write, Edit, Bash, PowerShell, WebFetch |
 | `workflow-author` | Writes GitHub Actions YAML to the repo's conventions and checks it with actionlint. | sonnet | Read, Glob, Grep, Write, Edit, Bash |
 | `container-author` | Writes and edits Dockerfiles and `build.cmd` for existing image folders. | sonnet | Read, Glob, Grep, Write, Edit, WebFetch |
-| `windows-demo-scaffolder` | Creates a whole new `nano-server-<stack>/` demo folder and wires it into the root README. | sonnet | Read, Write, Edit, Glob, Grep, Bash, WebFetch |
+| `windows-demo-scaffolder` | Creates a whole new `nano-server/nano-server-<stack>/` (or `server-core/server-core-<stack>/`) demo folder and wires it into the root README. | sonnet | Read, Write, Edit, Glob, Grep, Bash, WebFetch |
 | `powershell-author` | Writes PowerShell 7 scripts and modules with Pester tests, clean under PSScriptAnalyzer. | sonnet | Read, Glob, Grep, Write, Edit, PowerShell |
 | `python-author` | Writes Python tools and the convention tests under `tests/` with uv (Python version from `UV_PYTHON`), PyYAML and pytest. Hands formatting to `python-fixer`. | sonnet | Read, Glob, Grep, Write, Edit, Bash, Agent |
 | `python-fixer` | Runs ruff format and ruff check --fix, fixes what's left by hand without changing behaviour, then re-runs the tests. | haiku | Bash, Read, Edit, Glob, Grep |

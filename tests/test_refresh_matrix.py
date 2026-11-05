@@ -6,7 +6,7 @@ import json
 
 import pytest
 import refresh_matrix as rm
-from repo_conventions import image_dirs
+from repo_conventions import image_context, image_dirs
 
 NANO_2022 = "mcr.microsoft.com/windows/nanoserver:ltsc2022-amd64"
 
@@ -31,7 +31,7 @@ class FakeRegistries(rm.Registries):
 
 
 SPEC = rm.ImageSpec(
-    context="nano-server-php",
+    context="nano-server/nano-server-php",
     image="windows-nano-php",
     workflow="php-container.yml",
     bases={v: f"mcr.microsoft.com/windows/nanoserver:ltsc{v}-amd64" for v in rm.WINDOWS_VERSIONS},
@@ -90,7 +90,10 @@ def test_force_rebuilds_everything_without_reading_docker_hub() -> None:
 
 
 def test_only_limits_the_images() -> None:
-    assert rm.plan_refresh([SPEC], FakeRegistries({}), never_changed, force=True, only={"nano-server-go"}) == []
+    assert (
+        rm.plan_refresh([SPEC], FakeRegistries({}), never_changed, force=True, only={"nano-server/nano-server-go"})
+        == []
+    )
 
 
 def test_summary_says_nothing_to_rebuild() -> None:
@@ -107,14 +110,14 @@ def test_summary_lists_each_leg() -> None:
 class TestDiscovery:
     def test_finds_every_image_folder(self) -> None:
         contexts = {spec.context for spec in rm.discover_images()}
-        assert contexts == {p.name for p in image_dirs()}
+        assert contexts == {image_context(p) for p in image_dirs()}
 
     def test_uses_the_dockerfile_default_base(self) -> None:
-        far = next(s for s in rm.discover_images() if s.context == "nano-server-far")
+        far = next(s for s in rm.discover_images() if s.context == "server-core/server-core-far")
         assert far.bases["2022"] == "mcr.microsoft.com/windows/servercore:ltsc2022-amd64"
 
     def test_applies_base_image_overrides(self) -> None:
-        ssh = next(s for s in rm.discover_images() if s.context == "nano-server-ssh")
+        ssh = next(s for s in rm.discover_images() if s.context == "nano-server/nano-server-ssh")
         assert ssh.bases["2022"] == "mcr.microsoft.com/windows/nanoserver:ltsc2022-amd64"
         assert ssh.bases["2025"] == "mcr.microsoft.com/windows/servercore:ltsc2025-amd64"
 
@@ -201,13 +204,13 @@ class TestRegistries:
 
 
 def test_discovery_honours_a_narrowed_version_list() -> None:
-    mysql = next(s for s in rm.discover_images() if s.context == "nano-server-mysql")
+    mysql = next(s for s in rm.discover_images() if s.context == "nano-server/nano-server-mysql")
     assert sorted(mysql.bases) == ["2022", "2025"]
 
 
 def test_refresh_never_plans_a_version_an_image_doesnt_build() -> None:
     spec = rm.ImageSpec(
-        context="nano-server-mysql",
+        context="nano-server/nano-server-mysql",
         image="windows-nano-mysql",
         workflow="mysql-container.yml",
         bases={v: f"mcr.microsoft.com/windows/nanoserver:ltsc{v}-amd64" for v in ("2022", "2025")},
@@ -386,7 +389,7 @@ class TestMatrixExpansion:
 
 def variant(prefix: str, plain: bool = False) -> rm.ImageSpec:
     return rm.ImageSpec(
-        "nano-server-go",
+        "nano-server/nano-server-go",
         "windows-nano-go",
         "go-container.yml",
         {"2025": "mcr.microsoft.com/windows/nanoserver:ltsc2025-amd64"},

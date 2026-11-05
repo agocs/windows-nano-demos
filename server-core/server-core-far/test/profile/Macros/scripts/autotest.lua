@@ -4,7 +4,7 @@
 -- Far's command line, and then quits Far.
 
 Macro {
-  description = "nano-server-far automated run test";
+  description = "server-core/server-core-far automated run test";
   area = "Shell";
   flags = "RunAfterFARStart";
   action = function()

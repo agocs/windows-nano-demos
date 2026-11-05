@@ -11,7 +11,7 @@ You build the Windows container images in this repository on a Windows host runn
 
 ## Layout
 
-- Each top-level folder with a `Dockerfile` (for example `nano-server-php/`) is one image.
+- Each folder under `nano-server/` or `server-core/` with a `Dockerfile` (for example `nano-server/nano-server-php/`) is one image.
 - A folder may have a `build.cmd` that stages host files (DLLs, tools) into a `system32/` folder before `docker build`. Read it before building and run the staging steps yourself.
 - Images take a `WINDOWS_VERSION` build arg (`2019`, `2022`, ...). Tag as `<image-name>:<version>` and `zippy1981/<image-name>:<version>`, matching `build.cmd`.
 

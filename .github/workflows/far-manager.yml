@@ -1,17 +1,17 @@
-# Builds and tests windows-nano-far for every Windows version through the shared workflow (ADR 0009)
+# Builds and tests windows-servercore-far for every Windows version through the shared workflow (ADR 0009)
 name: Far Manager container
 
 on:
   push:
     branches: [main]
     paths:
-      - 'nano-server-far/**'
+      - 'server-core/server-core-far/**'
       - '.github/workflows/far-manager.yml'
       - '.github/workflows/build-windows-image.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'nano-server-far/**'
+      - 'server-core/server-core-far/**'
       - '.github/workflows/far-manager.yml'
       - '.github/workflows/build-windows-image.yml'
   workflow_dispatch:
@@ -25,5 +25,5 @@ jobs:
   build:
     uses: ./.github/workflows/build-windows-image.yml
     with:
-      context: nano-server-far
-      image: windows-nano-far
+      context: server-core/server-core-far
+      image: windows-servercore-far

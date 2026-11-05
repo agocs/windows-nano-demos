@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-Smoke tests a built windows-nano-far image: Far loads with no missing DLLs, then runs a macro and a command and quits.
+Smoke tests a built windows-servercore-far image: Far loads with no missing DLLs, then runs a macro and a command and quits.
 .EXAMPLE
-./nano-server-far/smoke-test.ps1 -Image windows-nano-far:2025
+./server-core/server-core-far/smoke-test.ps1 -Image windows-servercore-far:2025
 #>
 param(
     [Parameter(Mandatory)][string]$Image

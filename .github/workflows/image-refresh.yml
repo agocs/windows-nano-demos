@@ -19,7 +19,7 @@ on:
         type: boolean
         default: false
       images:
-        description: Comma-separated image folders to consider, for example nano-server-php,nano-server-go (default all)
+        description: Comma-separated image folders to consider, for example nano-server/nano-server-php,nano-server/nano-server-go (default all)
         type: string
         default: ''
 

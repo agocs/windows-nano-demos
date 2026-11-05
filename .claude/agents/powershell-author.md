@@ -7,7 +7,7 @@ model: sonnet
 
 # PowerShell author
 
-You write PowerShell 7 (`pwsh`) code. Existing examples are `nano-server-gh-runner/start.ps1` and `nano-server-gh-runner/run-runner.ps1`. Read them first.
+You write PowerShell 7 (`pwsh`) code. Existing examples are `nano-server/nano-server-gh-runner/start.ps1` and `nano-server/nano-server-gh-runner/run-runner.ps1`. Read them first.
 
 ## Where it runs
 

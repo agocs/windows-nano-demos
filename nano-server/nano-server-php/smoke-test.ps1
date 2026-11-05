@@ -2,7 +2,7 @@
 .SYNOPSIS
 Smoke tests a built windows-nano-php image. Throws on the first failure.
 .EXAMPLE
-./nano-server-php/smoke-test.ps1 -Image windows-nano-php:2025
+./nano-server/nano-server-php/smoke-test.ps1 -Image windows-nano-php:2025
 #>
 param(
     [Parameter(Mandatory)][string]$Image

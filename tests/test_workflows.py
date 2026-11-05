@@ -20,6 +20,7 @@ from repo_conventions import (
     WINDOWS_VERSIONS,
     all_jobs,
     callers_of_reusable,
+    image_context,
     image_dirs,
     is_reusable_call,
     jobs,
@@ -211,13 +212,13 @@ class TestReusableWorkflow:
 @pytest.mark.parametrize("image_dir", image_dirs(), ids=lambda p: p.name)
 class TestEveryImageHasACallerWorkflow:
     def _callers(self, image_dir) -> list[tuple[str, str, dict]]:
-        return [c for c in callers_of_reusable() if c[2].get("with", {}).get("context") == image_dir.name]
+        return [c for c in callers_of_reusable() if c[2].get("with", {}).get("context") == image_context(image_dir)]
 
     def test_exactly_one_caller(self, image_dir) -> None:
         callers = self._callers(image_dir)
         assert len(callers) == 1, (
-            f"{image_dir.name} needs exactly one workflow job with uses: {REUSABLE_WORKFLOW_REF} "
-            f"and context: {image_dir.name}, found {len(callers)}"
+            f"{image_context(image_dir)} needs exactly one workflow job with uses: {REUSABLE_WORKFLOW_REF} "
+            f"and context: {image_context(image_dir)}, found {len(callers)}"
         )
 
     def test_caller_passes_the_image_name(self, image_dir) -> None:
@@ -230,14 +231,14 @@ class TestEveryImageHasACallerWorkflow:
             for event in ("push", "pull_request"):
                 paths = (triggers.get(event) or {}).get("paths", [])
                 for wanted in (
-                    f"{image_dir.name}/**",
+                    f"{image_context(image_dir)}/**",
                     f".github/workflows/{REUSABLE_WORKFLOW}",
                     f".github/workflows/{wf}",
                 ):
                     assert wanted in paths, f"{wf} {event} paths are missing {wanted}"
 
     def test_has_a_smoke_test(self, image_dir) -> None:
-        assert (image_dir / SMOKE_TEST).is_file(), f"{image_dir.name}/{SMOKE_TEST} is missing"
+        assert (image_dir / SMOKE_TEST).is_file(), f"{image_context(image_dir)}/{SMOKE_TEST} is missing"
 
 
 @pytest.mark.parametrize(("wf", "job_id", "job"), callers_of_reusable(), ids=lambda c: str(c))
@@ -248,7 +249,7 @@ def test_callers_point_at_an_image_folder(wf: str, job_id: str, job: dict) -> No
             f"{wf}:{job_id} must take context from the detect matrix"
         )
         return
-    assert context in {p.name for p in image_dirs()}, (
+    assert context in {image_context(p) for p in image_dirs()}, (
         f"{wf}:{job_id} context {context!r} isn't a folder with a Dockerfile"
     )
 

@@ -11,3 +11,7 @@ Right now there is a PHP one. It has node and PHP and it works. I don't have not
 - [nano-server-ssh](nano-server-ssh/README.md): Win32-OpenSSH server on nanoserver where clients log in as real local Windows users (password and public key).
 - [nano-server-go](nano-server-go/README.md): Go, MinGit and the micro editor for Go development.
 - [nano-server-powershell](nano-server-powershell/README.md): PowerShell 7 with MinGit, micro, Pester, PSScriptAnalyzer, platyPS, PSReadLine and PSResourceGet.
+
+## Developing
+
+See [DEVELOPER.md](DEVELOPER.md) for how this repo works out which DLLs and APIs a tool needs on nano server, and when an image falls back to Server Core.

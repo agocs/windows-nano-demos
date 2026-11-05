@@ -20,5 +20,5 @@ package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["tests"]
+pythonpath = ["tests", "scripts"]
 addopts = "-ra"

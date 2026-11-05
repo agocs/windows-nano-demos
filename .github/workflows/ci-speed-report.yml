@@ -1,0 +1,59 @@
+# Daily report of CI image build times before and after each speed-up milestone in ci/speed-milestones.json.
+# Each run adds the report as a comment on the "CI speed report" issue, so the history of improvements (or the lack
+# of them) stays in one place.
+name: CI speed report
+
+on:
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: ci-speed-report
+  cancel-in-progress: false
+
+env:
+  UV_PYTHON: '3.14'
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  report:
+    # Reads the API only, no docker, so a GitHub-hosted runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ci_speed.py checks with git whether each run contains the milestone commit
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Build the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uv run python scripts/ci_speed.py --output ci-speed-report.md
+          cat ci-speed-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment on the CI speed report issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh label create ci-speed --color 0E8A16 --description 'CI build time tracking' 2>/dev/null || true
+          issue=$(gh issue list --label ci-speed --state open --json number --jq '.[0].number // empty')
+          if [ -z "$issue" ]; then
+            issue=$(gh issue create --title 'CI speed report' --label ci-speed \
+              --body 'Build-time reports from `.github/workflows/ci-speed-report.yml`, compared against the milestones in `ci/speed-milestones.json`.' \
+              | grep -oE '[0-9]+$')
+          fi
+          gh issue comment "$issue" --body-file ci-speed-report.md

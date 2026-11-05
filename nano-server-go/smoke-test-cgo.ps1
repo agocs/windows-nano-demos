@@ -19,8 +19,11 @@ try {
     if ($LASTEXITCODE -or $cgo -ne '1') { throw "expected CGO_ENABLED=1 in $Image, got '$cgo'" }
 
     # nanoserver has no where.exe, so run the compiler to prove it is on PATH
-    $cc = docker run --rm $Image "%CC% --version"
-    if ($LASTEXITCODE) { throw "the C compiler (CC=%CC%) did not run: $LASTEXITCODE $cc" }
+    # CC is set with `go env -w` in the image, so ask go for it
+    $ccName = (docker run --rm $Image "go env CC").Trim()
+    if ($LASTEXITCODE -or -not $ccName) { throw "go env CC is empty in $Image" }
+    $cc = docker run --rm $Image "$ccName --version"
+    if ($LASTEXITCODE) { throw "the C compiler (CC=$ccName) did not run: $LASTEXITCODE $cc" }
     Write-Host ($cc | Select-Object -First 1)
 
     # The runner is itself a container, so there are no bind mounts: the source is written by RUN steps.

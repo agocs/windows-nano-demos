@@ -68,21 +68,21 @@ The first sqlcmd attempt failed with `error obtaining VCS status: exit status 12
 
 - [x] **container-author**: Run the toolchain experiments and keep the prototype Dockerfiles in `experiments/go-cgo/`. Accept: the results table above is filled in, and `cc --version` and a cgo hello world are recorded for llvm-mingw on 2019, 2022 and 2025.
 - [x] **windows-container-tester**: Write `nano-server-go/smoke-test-cgo.ps1` and `smoke-test-cgo-sqlcmd.ps1`. Accept: both pass against the llvm-mingw prototype on ltsc2025 (results in the PR description).
-- [ ] **adr**: Write ADR 0012 "The Go image has a cgo variant using llvm-mingw, tagged `-cgo-`" (amending 0005 for variant tags) and add it to `docs/adr/README.md`. Accept: markdownlint passes, and the index lists it.
+- [x] **adr**: Write ADR 0012 "The Go image has a cgo variant using llvm-mingw, tagged `-cgo-`" (amending 0005 for variant tags) and add it to `docs/adr/README.md`. Accept: markdownlint passes, and the index lists it.
 
 ### Phase 1: Dockerfile
 
-- [ ] **container-author**: Add `ARG CGO=0`, `ARG CC_TOOLCHAIN=llvm-mingw` and the pinned `CC_TOOLCHAIN_VERSION` to `nano-server-go/Dockerfile`. When `CGO=1`, install the toolchain in its own layer after Go, set `CGO_ENABLED=1`, `CC`, `CXX` and add its `bin` to `PATH`. Otherwise keep `CGO_ENABLED=0`. Accept: `docker build` with `CGO=0` is byte-for-byte the same layers as today, and with `CGO=1` `go env CGO_ENABLED CC` shows `1` and the clang wrapper, for 2019, 2022 and 2025.
-- [ ] **container-author**: Delete the unused `aarch64`, `armv7` and `i686` target folders and their wrappers in the same `RUN` as the extraction. Accept: the cgo image is at least 300 MB smaller than the +755 MB measured, and both cgo smoke tests still pass.
+- [x] **container-author**: Add `ARG CGO=0`, `ARG CC_TOOLCHAIN=llvm-mingw` and the pinned `CC_TOOLCHAIN_VERSION` to `nano-server-go/Dockerfile`. When `CGO=1`, install the toolchain in its own layer after Go, set `CGO_ENABLED=1`, `CC`, `CXX` and add its `bin` to `PATH`. Otherwise keep `CGO_ENABLED=0`. Accept: `docker build` with `CGO=0` is byte-for-byte the same layers as today, and with `CGO=1` `go env CGO_ENABLED CC` shows `1` and the clang wrapper, for 2019, 2022 and 2025.
+- [x] **container-author**: Delete the unused `aarch64`, `armv7` and `i686` target folders and their wrappers in the same `RUN` as the extraction. Accept: the cgo image is at least 300 MB smaller than the +755 MB measured, and both cgo smoke tests still pass.
 - [ ] **windows-dockerfile-reviewer**: Review the Dockerfile change. Accept: no high-severity findings open.
-- [ ] **container-author**: Update `build.cmd` for `CGO=1` and its tag, and the README (cgo section, toolchain, licences, tags). Accept: `build.cmd` with `CGO=1` tags `windows-nano-go:<go>-cgo-<win>`, and markdownlint passes.
+- [x] **container-author**: Update `build.cmd` for `CGO=1` and its tag, and the README (cgo section, toolchain, licences, tags). Accept: `build.cmd` with `CGO=1` tags `windows-nano-go:<go>-cgo-<win>`, and markdownlint passes.
 
 ### Phase 2: CI
 
-- [ ] **workflow-author**: Change `smoke-test.ps1` to call the two cgo scripts when `CGO_ENABLED=1`, and skip the algernon test then. Accept: `smoke-test.ps1 -Image` passes for a cgo-off and a cgo image.
+- [x] **workflow-author**: Change `smoke-test.ps1` to call the two cgo scripts when `CGO_ENABLED=1`, and skip the algernon test then. Accept: `smoke-test.ps1 -Image` passes for a cgo-off and a cgo image.
 - [ ] **workflow-author**: Add a cgo job to `.github/workflows/go-container.yml` for the newest Go with `CGO: "1"` and `variant: go<ver>-cgo`, and a timeout of 120 minutes. Accept: actionlint is clean, and three legs (2019, 2022, 2025) go green on a branch push.
 - [ ] **cicd-engineer**: Decide how custom labels reach the publish step (a per-image `labels.ps1`, or `LABEL_*` environment variables) and add `com.zippy1981.go.version`, `.cgo.enabled`, `.cgo.toolchain` and `.cgo.toolchain.version`. Accept: labels are added only in the publish step, a CI build's image ID is unchanged by them, and `docker image inspect` on a published image shows them.
-- [ ] **python-author**: Extend the convention tests so an image folder that has several smoke-test scripts still has `smoke-test.ps1`, and the Dockerfile's `ARG CGO` default is `0`. Accept: pytest passes, and ruff is clean at line length 120.
+- [x] **python-author**: Extend the convention tests so an image folder that has several smoke-test scripts still has `smoke-test.ps1`, and the Dockerfile's `ARG CGO` default is `0`. Accept: pytest passes, and ruff is clean at line length 120.
 
 ### Phase 3: Publish
 
@@ -106,3 +106,15 @@ The first sqlcmd attempt failed with `error obtaining VCS status: exit status 12
 - `python-author`: convention tests.
 - `windows-container-tester`: smoke tests and published image checks.
 - `adr`: ADR 0012.
+
+## Implementation notes
+
+Phases 1 and 2 are implemented on this branch, and the Phase 3 publishing tasks are not.
+
+- **One Dockerfile.** `ARG CGO=0`, `ARG CC_TOOLCHAIN=llvm-mingw` and `ARG LLVM_MINGW_VERSION=20261104` sit after the Go, MinGit and micro layers. With `CGO=0` only metadata differs from before (`CGO_ENABLED` moved to the end of the file); no filesystem layer changed. With `CGO=1` one `RUN` downloads and extracts llvm-mingw into `C:\Program Files\llvm-mingw`, trims it, runs `setx PATH` (user PATH only, with the toolchain `bin` in front of the existing entries) and `go env -w CC=x86_64-w64-mingw32-clang CXX=x86_64-w64-mingw32-clang++`. `CC` is therefore not a container environment variable. `smoke-test-cgo.ps1` reads it with `go env CC`. Any `CC_TOOLCHAIN` but `llvm-mingw` with `CGO=1` fails the build with a message.
+- **Trim.** The same `RUN` deletes the aarch64, armv7, i686 and arm64ec toolchains and wrappers, the per-architecture compiler-rt libraries, `python`, `busybox`, lldb, clangd and clang-tidy. Measured on ltsc2025: the plain image is 854 MB and the cgo image is 1.27 GB, so cgo adds 416 MB instead of 755 MB (339 MB smaller than the untrimmed build; the toolchain layer is 419 MB). The plan's target was at least 300 MB.
+- **Smoke tests, ltsc2025 on this host.** `smoke-test.ps1` on the plain image passes (hello, a cgo build fails as expected, algernon). On the cgo image it passes (hello, `cgo says 42`, sqlcmd v1.10.0 built with cgo). ltsc2022 and ltsc2019 were not run locally; CI covers them. Moving `CC` from `ENV` to `go env -w` broke the prototype's `%CC%` check in `smoke-test-cgo.ps1`, which is fixed.
+- **Convention tests.** `tests/test_images.py` gets `TestGoCgo`: `ARG CGO=0` exists and comes after the Go install `RUN`. `build-windows-image.yml` still rejects `WINDOWS_VERSION` and `BASE_IMAGE` in `build-args`.
+- **CI.** `go-container.yml` uses explicit `include` entries: the three plain Go lines with `cgo: '0'` and one `1.27.3` entry with `cgo: '1'`, `variant: go1.27.3-cgo` and a 150 minute timeout (90 for the others). The job `name` is set to `build (<go>[-cgo])` so `scripts/ci_speed.py` still parses it. The entries also carry `tag-prefix` and `also-plain-tags` to match the shape on the variant-publishing branch; they are not passed to the shared workflow yet because it has no such inputs on this branch.
+- **Not published.** The shared workflow's publish step tags only by Windows version, so publishing the cgo leg would overwrite the plain image's tags. `image-refresh.yml` and `scripts/refresh_matrix.py` never pass `CGO` or any build argument, so refreshes build and publish only the plain image. The cgo leg is build and test only until the shared workflow gains variant-aware tags (`<go>-cgo-<win>` plus the ADR 0005 suffixes). This is recorded in [ADR 0012](../docs/adr/0012-the-go-image-has-a-cgo-variant-using-llvm-mingw.md) (Proposed), which defers the tag scheme to the amended ADR 0005.
+- **Left for later.** The custom labels (CI task), the `-cgo-` publish and refresh teaching (Phase 3), the `windows-dockerfile-reviewer` pass, `windows-deps-updater` learning the llvm-mingw pin, and the published-image checks.

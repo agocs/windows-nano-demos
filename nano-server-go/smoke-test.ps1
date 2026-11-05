@@ -56,7 +56,11 @@ RUN echo package main> main.go && echo import "fmt">> main.go && echo func main(
     Build-Derived $algernonImage @"
 FROM __IMAGE__
 WORKDIR C:/users/containeruser
-RUN git clone --depth 1 --branch $AlgernonVersion https://github.com/xyproto/algernon && cd algernon && go build -o C:\users\containeruser\algernon.exe .
+RUN git clone --depth 1 --branch $AlgernonVersion https://github.com/xyproto/algernon
+# Modules in their own layer: the daemon reuses it on later runs while algernon's go.mod is unchanged
+RUN cd algernon && go mod download
+# -buildvcs=false: the clone is in an earlier layer, and git won't report VCS status there for Go's version stamp
+RUN cd algernon && go build -buildvcs=false -o C:\users\containeruser\algernon.exe .
 RUN mkdir C:\users\containeruser\site && echo algernon-ok> C:\users\containeruser\site\index.html
 "@
     docker run -d --name $algernonContainer $algernonImage "C:\users\containeruser\algernon.exe --httponly --server --nobanner --addr :3000 C:\users\containeruser\site" | Out-Null
@@ -80,5 +84,6 @@ RUN mkdir C:\users\containeruser\site && echo algernon-ok> C:\users\containeruse
 }
 finally {
     docker rm -f $algernonContainer 2>$null | Out-Null
-    docker rmi -f $algernonImage $helloImage 2>$null | Out-Null
+    # --no-prune keeps the clone, module and build layers cached for the next run
+    docker rmi -f --no-prune $algernonImage $helloImage 2>$null | Out-Null
 }

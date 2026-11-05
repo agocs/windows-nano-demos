@@ -1,0 +1,110 @@
+# Patch Tuesday image refresh (plans/patch-tuesday-image-refresh.md, ADR 0004-0007).
+# On every push to main and twice a day, find every image and Windows version whose Microsoft base image or source
+# changed since it was last published, rebuild and smoke-test exactly those, and publish them. A failure opens an issue.
+name: Image refresh
+
+on:
+  # A merge publishes the images it changed right away: detection reports them as source-changed (ADR 0006)
+  push:
+    branches: [main]
+  schedule:
+    # Polling instead of guessing the date: GitHub cron ORs day-of-month and day-of-week, so
+    # "the Wednesday after the second Tuesday" can't be expressed. A quiet run builds nothing.
+    - cron: '0 6 * * *'
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild every image and version even if nothing changed
+        type: boolean
+        default: false
+      images:
+        description: Comma-separated image folders to consider, for example nano-server-php,nano-server-go (default all)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+# One refresh at a time, so two runs never publish the same tags
+concurrency:
+  group: image-refresh
+  cancel-in-progress: false
+
+env:
+  UV_PYTHON: '3.14'
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # source-changed compares the published revision label with each folder's history
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Find images to rebuild
+        id: detect
+        env:
+          FORCE: ${{ inputs.force && '--force' || '' }}
+          IMAGES: ${{ inputs.images }}
+        run: uv run python scripts/refresh_matrix.py $FORCE --images "$IMAGES" --github-output
+
+  refresh:
+    needs: detect
+    if: needs.detect.outputs.matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.matrix) }}
+    uses: ./.github/workflows/build-windows-image.yml
+    with:
+      context: ${{ matrix.context }}
+      image: ${{ matrix.image }}
+      windows-versions: ${{ matrix.windows-versions }}
+      base-image-overrides: ${{ matrix.base-image-overrides }}
+      # The shared workflow also checks github.ref, so a dispatch on a branch builds and tests without pushing
+      publish: ${{ github.ref == 'refs/heads/main' }}
+      timeout-minutes: 120
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  notify:
+    needs: [detect, refresh]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      DETECT: ${{ needs.detect.result }}
+      REFRESH: ${{ needs.refresh.result }}
+    steps:
+      - name: Open, update or close the image-refresh issue
+        run: |
+          gh label create image-refresh --color B60205 --description 'Patch Tuesday image refresh failed' 2>/dev/null || true
+          issue=$(gh issue list --label image-refresh --state open --json number --jq '.[0].number // empty')
+          if [ "$DETECT" = failure ] || [ "$REFRESH" = failure ] || [ "$REFRESH" = cancelled ]; then
+            body="Image refresh failed: detect=$DETECT, refresh=$REFRESH. Failed legs and logs: $RUN_URL"
+            if [ -n "$issue" ]; then
+              gh issue comment "$issue" --body "$body"
+            else
+              gh issue create --title 'Image refresh failed' --label image-refresh --body "$body"
+            fi
+            exit 1
+          elif [ -n "$issue" ]; then
+            gh issue close "$issue" --comment "Image refresh is green again: $RUN_URL"
+          fi

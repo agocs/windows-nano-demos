@@ -46,6 +46,10 @@ Don't use `& | < > ^ " % ' \` in the passwords. The entrypoint is a `cmd` script
 
 The smoke test checks that the server refuses to start without a root password, then starts one with a generated password and runs the `mysql` client from a second container over the container network. It creates a table, inserts a row, selects it, checks that a wrong password is rejected and that the `MYSQL_USER` account is limited to its database, then restarts the server container and checks that the row and the credentials persisted. It removes only the containers and volume it created.
 
+### Windows versions
+
+CI builds and tests this image for **ltsc2022 and ltsc2025 only**. On ltsc2019 the smoke test's restart check fails intermittently, with "the row did not survive a restart". It passed on some runs and failed on others for the same image, and the root cause isn't known yet. The workflow narrows the shared matrix with `windows-versions`, and `WINDOWS_VERSION_EXCEPTIONS` in `tests/repo_conventions.py` records the exception (ADR 0008). Building for 2019 locally still works with `set WINDOWS_VERSION=2019`, but that image isn't tested or published.
+
 ## Building
 
 ```pwsh

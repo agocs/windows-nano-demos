@@ -12,6 +12,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.7.0",
     "pytest>=9.0",
 ]
 
@@ -20,5 +21,8 @@ package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["tests"]
+pythonpath = ["tests", "scripts"]
 addopts = "-ra"
+
+[tool.ruff]
+line-length = 120

@@ -1,4 +1,5 @@
-# Builds and tests windows-nano-mysql for every Windows version through the shared workflow (ADR 0009)
+# Builds and tests windows-nano-mysql for ltsc2022 and ltsc2025 through the shared workflow (ADR 0009).
+# ltsc2019 is an ADR 0008 exception: see nano-server-mysql/README.md.
 name: MySQL container
 
 on:
@@ -16,9 +17,16 @@ on:
       - '.github/workflows/build-windows-image.yml'
   workflow_dispatch:
 
+# A new push to a pull request cancels that pull request's older runs. Pushes to main always run to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     uses: ./.github/workflows/build-windows-image.yml
     with:
       context: nano-server-mysql
       image: windows-nano-mysql
+      # Not ltsc2019: the smoke test's restart check fails intermittently there (WINDOWS_VERSION_EXCEPTIONS in tests/)
+      windows-versions: '["2022", "2025"]'

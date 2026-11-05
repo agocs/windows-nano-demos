@@ -17,19 +17,26 @@ WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 # ADR 0003: the self-hosted nanoserver runners that talk to the host docker daemon
 RUNNER_LABELS = ["self-hosted", "windows", "docker"]
 # ADR 0003: self-hosted jobs never run for pull requests from forks
-FORK_GUARD = (
-    "github.event_name != 'pull_request' || "
-    "github.event.pull_request.head.repo.full_name == github.repository"
-)
+FORK_GUARD = "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"
 # ADR 0008
 WINDOWS_VERSIONS = ["2019", "2022", "2025"]
 DEFAULT_WINDOWS_VERSION = "2025"
+# ADR 0008 exceptions: images whose workflow overrides the shared matrix with `windows-versions`, and exactly the
+# versions they build. Every entry needs a reason in the image README.
+WINDOWS_VERSION_EXCEPTIONS = {
+    # The smoke test's restart check ("the row did not survive a restart") fails intermittently on ltsc2019
+    "nano-server-mysql": ["2022", "2025"],
+}
 BASE_IMAGE_ARG = re.compile(
     r"^ARG BASE_IMAGE=mcr\.microsoft\.com/windows/(nanoserver|servercore):ltsc\$\{WINDOWS_VERSION\}-amd64$"
 )
 # ADR 0009
 REUSABLE_WORKFLOW = "build-windows-image.yml"
 REUSABLE_WORKFLOW_REF = f"./.github/workflows/{REUSABLE_WORKFLOW}"
+# plans/patch-tuesday-image-refresh.md: the only workflow that publishes, and the only caller that builds a subset of versions
+REFRESH_WORKFLOW = "image-refresh.yml"
+# The GitHub environment that holds DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
+PUBLISH_ENVIRONMENT = "Docker Hub zippy1981"
 SMOKE_TEST = "smoke-test.ps1"
 # ADR 0011: actions owned by these accounts may use version tags; everything else is pinned to a commit
 TRUSTED_ACTION_OWNERS = {"actions"}
@@ -44,7 +51,7 @@ def workflow_paths() -> list[Path]:
 def load_workflow(path: Path) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError(f"{path.name} is not a YAML mapping")
+        raise TypeError(f"{path.name} is not a YAML mapping")
     # PyYAML follows YAML 1.1, which reads the bare key `on` as the boolean True
     if True in data:
         data["on"] = data.pop(True)

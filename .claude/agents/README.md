@@ -11,19 +11,19 @@ This folder holds the [Claude Code subagents](https://docs.claude.com/en/docs/cl
 | `governance` | Read-only audit of agents, images, workflows, plans, ADRs, and docs. Returns a ranked gap report. | opus | Read, Glob, Grep |
 | `cicd-engineer` | Designs the CI/CD system: runner fleet and image, matrices, schedules, publishing, cleanup, secrets. | opus | Read, Glob, Grep, Write, Edit, Bash, PowerShell, WebFetch |
 | `workflow-author` | Writes GitHub Actions YAML to the repo's conventions and checks it with actionlint. | sonnet | Read, Glob, Grep, Write, Edit, Bash |
-| `container-author` | Writes and edits Dockerfiles and `build.cmd` for existing image folders. | sonnet | Read, Glob, Grep, Write, Edit, WebFetch |
-| `windows-demo-scaffolder` | Creates a whole new `nano-server/nano-server-<stack>/` (or `server-core/server-core-<stack>/`) demo folder and wires it into the root README. | sonnet | Read, Write, Edit, Glob, Grep, Bash, WebFetch |
+| `container-author` | Writes and edits Dockerfiles and `build.cmd` for existing image folders. Hands Dockerfile documentation to `markdown-reviewer`. | sonnet | Read, Glob, Grep, Write, Edit, WebFetch, Agent |
+| `windows-demo-scaffolder` | Creates a whole new `nano-server/nano-server-<stack>/` (or `server-core/server-core-<stack>/`) demo folder and wires it into the root README. | sonnet | Read, Write, Edit, Glob, Grep, Bash, WebFetch, Agent |
 | `powershell-author` | Writes PowerShell 7 scripts and modules with Pester tests, clean under PSScriptAnalyzer. | sonnet | Read, Glob, Grep, Write, Edit, PowerShell |
 | `python-author` | Writes Python tools and the convention tests under `tests/` with uv (Python version from `UV_PYTHON`), PyYAML and pytest. Hands formatting to `python-fixer`. | sonnet | Read, Glob, Grep, Write, Edit, Bash, Agent |
 | `python-fixer` | Runs ruff format and ruff check --fix, fixes what's left by hand without changing behaviour, then re-runs the tests. | haiku | Bash, Read, Edit, Glob, Grep |
 | `windows-container-builder` | Builds and tags images for ltsc2019, ltsc2022, and ltsc2025. | sonnet | PowerShell, Read, Glob, Grep |
 | `windows-container-tester` | Smoke-tests built images by running their tools. | sonnet | PowerShell, Read, Glob, Grep |
-| `windows-deps-updater` | Finds and applies newer tool versions pinned in Dockerfiles. | sonnet | Read, Edit, Glob, Grep, Bash, WebFetch |
+| `windows-deps-updater` | Finds and applies newer tool versions pinned in Dockerfiles. | sonnet | Read, Edit, Glob, Grep, Bash, WebFetch, Agent |
 | `windows-dockerfile-reviewer` | Read-only review of Dockerfiles and build scripts for nanoserver pitfalls. | opus | Read, Glob, Grep |
 | `windows-host-doctor` | Diagnoses the host's container setup when builds fail for environmental reasons. | haiku | PowerShell, Read, Glob, Grep |
 | `windows-image-publisher` | Pushes images to Docker Hub, only when explicitly asked. | haiku | PowerShell, Read |
-| `markdown-reviewer` | Read-only review of Markdown against the lint config. Hands fixes to `markdown-fixer`. | haiku | Bash, Read, Glob, Grep, Agent |
-| `markdown-fixer` | Fixes markdownlint errors by editing content. | haiku | Bash, Read, Edit, Glob, Grep |
+| `markdown-reviewer` | Read-only review of Markdown against the lint config, and of Dockerfile documentation comments against the `dockerfile-docs` skill. Hands fixes to `markdown-fixer`. | haiku | Bash, Read, Glob, Grep, Agent |
+| `markdown-fixer` | Fixes markdownlint errors by editing content, and applies Dockerfile comment fixes without touching instructions. | haiku | Bash, Read, Edit, Glob, Grep |
 | `ci-watcher` | Waits for a run or a PR's checks to finish, then reports the outcome and, for failures, `scripts/ci_triage.py`'s compact output. | haiku | Bash, Read |
 
 ## How models were chosen
@@ -52,6 +52,7 @@ planning ──► container-author, windows-demo-scaffolder, workflow-author, c
              powershell-author, python-author, windows-deps-updater, adr, ...
 cicd-engineer ──► design for workflow-author; scripts for powershell-author
 windows-demo-scaffolder / container-author / windows-deps-updater
+             ──► markdown-reviewer (Dockerfile header and build-argument comments) ──► markdown-fixer
              ──► windows-dockerfile-reviewer ──► windows-container-builder ──► windows-container-tester
                  ──► windows-image-publisher (only when the user asks)
 markdown-reviewer ──► markdown-fixer
@@ -59,4 +60,4 @@ python-author ──► python-fixer (ruff)
 governance ──► report only (the caller dispatches fixes)
 ```
 
-`planning`, `markdown-reviewer` and `python-author` have the Agent tool, so they can start the agents they hand off to. Claude Code subagents can't start other subagents, though, so this only works when they run as the main agent. Running as a subagent, `planning` returns the plan with an owner on every task, `markdown-reviewer` ends its report by naming the files for `markdown-fixer`, and `python-author` runs ruff itself. Every other hand-off is a recommendation in the agent's report.
+`planning`, `markdown-reviewer`, `python-author` and the three Dockerfile-writing agents (`container-author`, `windows-demo-scaffolder`, `windows-deps-updater`) have the Agent tool, so they can start the agents they hand off to. Claude Code subagents can't start other subagents, though, so this only works when they run as the main agent. Running as a subagent, `planning` returns the plan with an owner on every task, `markdown-reviewer` ends its report by naming the files for `markdown-fixer`, and `python-author` runs ruff itself. Every other hand-off is a recommendation in the agent's report.

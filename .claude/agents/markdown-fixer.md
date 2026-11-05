@@ -1,6 +1,6 @@
 ---
 name: markdown-fixer
-description: Fixes markdownlint errors in this repo's Markdown files so the Lint Markdown check passes, by correcting the content rather than disabling rules. Use when the lint fails or after editing docs.
+description: Fixes markdownlint errors in this repo's Markdown files so the Lint Markdown check passes, by correcting the content rather than disabling rules, and applies Dockerfile documentation fixes (header and build-argument comments, per the dockerfile-docs skill) without touching instructions. Use when the lint fails, after editing docs, or when markdown-reviewer hands over Dockerfile comment fixes.
 tools: Bash, Read, Edit, Glob, Grep
 model: haiku
 ---
@@ -32,3 +32,7 @@ You make the Markdown in this repository pass the repo's markdownlint config.
 - Keep YAML front matter in agent and skill files, followed by a blank line
   and an H1.
 - Do not edit files under `.claude/worktrees/` or `node_modules/`.
+
+## Dockerfile documentation
+
+When `markdown-reviewer` hands over Dockerfile comment fixes, edit only `#` comment lines: the header and the comments above `ARG` lines. Follow the `dockerfile-docs` skill. Never change an instruction (`FROM`, `ARG`, `RUN`, `ENV` and so on), and never put `key=value` on the first line, which Docker would read as a parser directive. Then run `uv run pytest -q tests/test_dockerfile_docs.py` and report the result.

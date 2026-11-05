@@ -1,0 +1,8 @@
+[
+  {
+    "id": "layer-cache",
+    "sha": "2f83b5263c37bb3ba2f963f6df95b77cd4e0969e",
+    "since": "2026-11-05T12:43:54Z",
+    "description": "PR #28: keep the Docker layer cache between CI runs (`docker rmi --no-prune`, OCI labels moved from the build step to the publish step, Go modules downloaded in their own layer)"
+  }
+]

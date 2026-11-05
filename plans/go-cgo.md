@@ -80,7 +80,7 @@ The first sqlcmd attempt failed with `error obtaining VCS status: exit status 12
 ### Phase 2: CI
 
 - [x] **workflow-author**: Change `smoke-test.ps1` to call the two cgo scripts when `CGO_ENABLED=1`, and skip the algernon test then. Accept: `smoke-test.ps1 -Image` passes for a cgo-off and a cgo image.
-- [ ] **workflow-author**: Add a cgo job to `.github/workflows/go-container.yml` for the newest Go with `CGO: "1"` and `variant: go<ver>-cgo`, and a timeout of 120 minutes. Accept: actionlint is clean, and three legs (2019, 2022, 2025) go green on a branch push.
+- [x] **workflow-author**: Add a cgo job to `.github/workflows/go-container.yml` for the newest Go with `CGO: "1"` and `variant: go<ver>-cgo`, and a timeout of 150 minutes (as built). Accept: actionlint is clean, and three legs (2019, 2022, 2025) go green on a branch push.
 - [ ] **cicd-engineer**: Decide how custom labels reach the publish step (a per-image `labels.ps1`, or `LABEL_*` environment variables) and add `com.zippy1981.go.version`, `.cgo.enabled`, `.cgo.toolchain` and `.cgo.toolchain.version`. Accept: labels are added only in the publish step, a CI build's image ID is unchanged by them, and `docker image inspect` on a published image shows them.
 - [x] **python-author**: Extend the convention tests so an image folder that has several smoke-test scripts still has `smoke-test.ps1`, and the Dockerfile's `ARG CGO` default is `0`. Accept: pytest passes, and ruff is clean at line length 120.
 

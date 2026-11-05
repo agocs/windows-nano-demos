@@ -29,9 +29,13 @@ NOISE = re.compile(
     r"(Node\.js 20 is deprecated|##\[group\]|##\[endgroup\]|^\s*$|% Total|Dload|git config --local|"
     r"includeif|git-credentials|Removing credentials|Post job cleanup|Cleaning up orphan|safe\.directory|"
     r"^git version|Temporarily overriding HOME|Removing SSH command|Removing HTTP extra header|"
-    r"\[command\].*git(\.exe)?\"? (config|submodule|version))",
+    r"\[command\].*git(\.exe)?\"? (config|submodule|version)|"
+    # pytest: passing tests and progress lines
+    r"\bPASSED\b|^[.sxF]+\s+\[\s*\d+%\])",
     re.IGNORECASE,
 )
+# Colour codes from pwsh and pytest, which would otherwise show up as ^[[31;1m noise
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 # `gh run view --log` lines are "<job>\t<step>\t<time> <text>"; job and step names can contain spaces
 TIMESTAMP = re.compile(r"^[^\t]*\t[^\t]*\t\d{4}-\d\d-\d\dT[\d:.]+Z ?|^\d{4}-\d\d-\d\dT[\d:.]+Z ?")
 
@@ -58,7 +62,7 @@ def failed_jobs(jobs: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def error_lines(log: str, tail: int = 8, limit: int = 30) -> list[str]:
     """The error-looking lines of a job log, plus its last `tail` lines, without timestamps and noise."""
-    lines = [TIMESTAMP.sub("", line).rstrip() for line in log.splitlines()]
+    lines = [TIMESTAMP.sub("", ANSI.sub("", line)).rstrip() for line in log.splitlines()]
     lines = [line for line in lines if line and not NOISE.search(line)]
     picked = [line for line in lines if ERROR.search(line)]
     seen: set[str] = set()

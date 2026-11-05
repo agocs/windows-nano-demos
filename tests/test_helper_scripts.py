@@ -105,3 +105,16 @@ def test_ci_triage_strips_prefixes_with_spaces_and_checkout_cleanup() -> None:
         "refresh_matrix: GET .../manifests/2019 returned 401",
         "##[error]Process completed with exit code 1.",
     ]
+
+
+def test_ci_triage_strips_colour_codes_and_passing_pytest_lines() -> None:
+    raw = [
+        "pytest\tTest\t2026-11-06T10:00:00.0000000Z tests/test_a.py::test_ok PASSED [ 50%]",
+        "pytest\tTest\t2026-11-06T10:00:01.0000000Z ....F..                                [ 70%]",
+        "pytest\tTest\t2026-11-06T10:00:02.0000000Z \x1b[31;1mFAILED tests/test_a.py::test_bad\x1b[0m - assert 1 == 2",
+        "pytest\tTest\t2026-11-06T10:00:03.0000000Z FAIL Required test coverage of 95% not reached. Total coverage: 90.00%",
+    ]
+    assert ci_triage.error_lines("\n".join(raw), tail=1) == [
+        "FAILED tests/test_a.py::test_bad - assert 1 == 2",
+        "FAIL Required test coverage of 95% not reached. Total coverage: 90.00%",
+    ]

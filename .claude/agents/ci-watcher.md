@@ -25,7 +25,7 @@ If the caller gives a time limit, stop at it and report what's still pending.
 ## Reporting
 
 1. The outcome, in one line: run name, commit, and success or failure, with counts for a PR (`12 pass, 1 fail`).
-2. For failures, run `uv run python scripts/ci_triage.py --run <id>` (or `--pr <n>`) and include its output as is. It's already compact.
+2. For failures, run `uv run python scripts/ci_triage.py --run <id>` (or `--pr <n>`) and include its output as is. It's already compact. If the failure is the coverage gate (`Required test coverage of 95% not reached`), report that line and say to use the `coverage-gaps` skill. For Codecov checks, use the `codecov` skill's one API call, never the upload logs.
 3. If a failure matches a known pattern in `.claude/skills/ci-triage/SKILL.md`, name it in one line, for example "hcs timeout under load, re-run once".
 
 Keep the whole report under 40 lines.

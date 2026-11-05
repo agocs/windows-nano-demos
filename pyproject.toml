@@ -23,7 +23,8 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests", "scripts"]
-addopts = "-ra"
+# Quiet by default: failures and errors only, short tracebacks (plans/codecov.md, "Reducing tokens")
+addopts = "-q -rfE --no-header --tb=short"
 
 [tool.ruff]
 line-length = 120
@@ -31,6 +32,8 @@ line-length = 120
 # Coverage of the scripts the tests exercise. `uv run pytest --cov` (CI and pre-commit) fails below fail_under;
 # a plain `uv run pytest -k ...` doesn't measure coverage, so running a few tests still works.
 [tool.coverage.run]
+# coverage.xml paths relative to the repo root, so Codecov maps them the same from any machine
+relative_files = true
 source = ["scripts"]
 
 [tool.coverage.report]

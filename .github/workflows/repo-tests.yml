@@ -26,7 +26,34 @@ jobs:
         run: uv sync --locked
 
       - name: Test
-        run: uv run pytest -v --cov --cov-report=term-missing --cov-report=markdown-append:$GITHUB_STEP_SUMMARY
+        # -q: Codecov Test Analytics keeps the per-test record, so the log only needs failures and the coverage gate
+        run: >-
+          uv run pytest -q --cov --cov-report=term-missing:skip-covered --cov-report=xml
+          --cov-report=markdown-append:$GITHUB_STEP_SUMMARY --junitxml=junit.xml -o junit_family=legacy
+
+      # Coverage and test results go to Codecov (plans/codecov.md). The local 95% gate in the Test step is the one
+      # that blocks; an upload failure fails the job only on main, so a Codecov outage never blocks a pull request.
+      # Fork pull requests get no secrets and upload tokenless, which Codecov allows for public repositories.
+      - name: Upload coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          disable_search: true
+          flags: python
+          fail_ci_if_error: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: junit.xml
+          disable_search: true
+          flags: python
+          fail_ci_if_error: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Lint Python
         run: |

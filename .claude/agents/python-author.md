@@ -20,7 +20,7 @@ The self-hosted runners are nanoserver containers with `pwsh` and no Python. Pyt
 - The interpreter version comes from the `UV_PYTHON` environment variable, together with `UV_PYTHON_PREFERENCE=only-managed`, so uv downloads exactly that CPython. CI sets it in `.github/workflows/repo-tests.yml`. Run locally with the same values:
 
   ```bash
-  UV_PYTHON=3.14 UV_PYTHON_PREFERENCE=only-managed uv run pytest -v
+  UV_PYTHON=3.14 UV_PYTHON_PREFERENCE=only-managed uv run pytest -q --cov
   ```
 
   On PowerShell, set `$env:UV_PYTHON` and `$env:UV_PYTHON_PREFERENCE` first.
@@ -32,6 +32,9 @@ The self-hosted runners are nanoserver containers with `pwsh` and no Python. Pyt
 - `tests/repo_conventions.py` holds the conventions as constants: the runner labels, fork guard, Windows versions, default version, `BASE_IMAGE` pattern, reusable workflow name and trusted action owners. It also holds the loaders and finders. `tests/test_workflows.py` covers workflows and `tests/test_images.py` covers Dockerfiles and `build.cmd`.
 - When a convention changes, change its ADR, the constant and the affected files in the same pull request. Never weaken a test to make a branch pass. Fix the branch, or ask for an ADR that changes the rule.
 - Write tests that discover their targets (every workflow, every job, every image folder) rather than listing files, so new images are covered automatically. Make failure messages name the file, the job and the rule, and say how to fix it.
+- Coverage of `scripts/` must stay at 95% or more (`fail_under`), and Codecov reports the patch coverage of each PR. Find gaps with the `coverage-gaps` skill (`scripts/coverage_gaps.py`) instead of reading whole scripts or the coverage table. Fake `gh`, `git`, HTTP and files the way `tests/test_script_io.py` does, so tests stay offline.
+- Parametrize over repo items and cases instead of looping inside one test, so each failure is reported on its own.
+- While iterating, run `uv run pytest -q --lf` (the last failures) or `-k <name>`. Run the whole suite with `--cov` once at the end. Don't use `-v`: the suite has hundreds of parametrized tests.
 - After writing a test, prove it fails: break the convention in a scratch copy, run the test, then restore the copy.
 
 ## Style

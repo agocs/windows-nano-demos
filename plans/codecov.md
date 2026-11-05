@@ -33,25 +33,25 @@ Every push and pull request uploads the Python test coverage and test results to
 
 ### Phase 0: Owner setup (manual, outside the repo)
 
-- [ ] **owner**: Create the Codecov account and connect the repo, and add `CODECOV_TOKEN` as a repository secret, as described in [Setting up the Codecov account](#setting-up-the-codecov-account). Accept: the repo appears on the Codecov dashboard, and `gh secret list` shows `CODECOV_TOKEN` (name only).
+- [x] **owner**: Create the Codecov account and connect the repo, and add `CODECOV_TOKEN` as a repository secret, as described in [Setting up the Codecov account](#setting-up-the-codecov-account). Accept: the repo appears on the Codecov dashboard, and `gh secret list` shows `CODECOV_TOKEN` (name only).
 
 ### Phase 1: Upload
 
-- [ ] **workflow-author**: In `repo-tests.yml`, add `--cov-report=xml --junitxml=junit.xml` to the pytest step. Add the coverage and test-results upload steps with `codecov/codecov-action`, pinned to a commit SHA with a version comment (ADR 0011). Pass `token: ${{ secrets.CODECOV_TOKEN }}`, `files: coverage.xml` / `junit.xml`, `flags: python`, and `fail_ci_if_error` per Decision 6. Accept: actionlint is clean, `tests/test_workflows.py` passes (pinned action), and a PR run shows the upload steps succeeding.
-- [ ] **python-author**: Add `coverage.xml`, `junit.xml` and `.coverage.*` to `.gitignore` if they're missing, and a convention test that `repo-tests.yml` never uses `pull_request_target` and passes `secrets.CODECOV_TOKEN` only to the Codecov steps. Accept: `uv run pytest --cov` passes at 95% or more.
-- [ ] **workflow-author**: Add `codecov.yml` per Decision 4, and validate it with `curl --data-binary @codecov.yml https://codecov.io/validate`. Accept: the validator returns "Valid!".
+- [x] **workflow-author**: In `repo-tests.yml`, add `--cov-report=xml --junitxml=junit.xml` to the pytest step. Add the coverage and test-results upload steps with `codecov/codecov-action`, pinned to a commit SHA with a version comment (ADR 0011). Pass `token: ${{ secrets.CODECOV_TOKEN }}`, `files: coverage.xml` / `junit.xml`, `flags: python`, and `fail_ci_if_error` per Decision 6. Accept: actionlint is clean, `tests/test_workflows.py` passes (pinned action), and a PR run shows the upload steps succeeding.
+- [x] **python-author**: Add `coverage.xml`, `junit.xml` and `.coverage.*` to `.gitignore` if they're missing, and a convention test that `repo-tests.yml` never uses `pull_request_target` and passes `secrets.CODECOV_TOKEN` only to the Codecov steps. Accept: `uv run pytest --cov` passes at 95% or more.
+- [x] **workflow-author**: Add `codecov.yml` per Decision 4, and validate it with `curl --data-binary @codecov.yml https://codecov.io/validate`. Accept: the validator returns "Valid!".
 
 ### Phase 2: Visibility
 
-- [ ] **container-author**: Add the Codecov badge to the root `README.md` and a "Coverage" paragraph to `DEVELOPER.md`. It covers where to see coverage, what the 95% and patch targets are, and that the local gate is the one that blocks. Accept: markdownlint passes.
-- [ ] **adr**: Amend ADR 0011 with the Coverage section (Decision 8). Accept: the ADR index is unchanged except the amended date, and markdownlint passes.
+- [x] **container-author**: Add the Codecov badge to the root `README.md` and a "Coverage" paragraph to `DEVELOPER.md`. It covers where to see coverage, what the 95% and patch targets are, and that the local gate is the one that blocks. Accept: markdownlint passes.
+- [x] **adr**: Amend ADR 0011 with the Coverage section (Decision 8). Accept: the ADR index is unchanged except the amended date, and markdownlint passes.
 
 ### Phase 3: Token savers for test work
 
-- [ ] **python-author**: Apply the test-output changes in [Reducing tokens spent on tests](#reducing-tokens-spent-on-tests) (items 1 to 3). Accept: a failing test still prints its assertion message, a full passing run prints at most a few lines, and coverage tables list only files below 100%.
-- [ ] **python-author**: Add `scripts/coverage_gaps.py` and the `coverage-gaps` skill (item 4). Accept: it prints, for each file below 100%, the uncovered line ranges with the enclosing function name and at most 3 lines of code each. Its own tests keep the 95% gate.
-- [ ] **python-author**: Make `scripts/ci_triage.py` strip ANSI colour codes and, for pytest logs, keep only `FAILED`, `ERROR`, `E` and the coverage-gate lines (item 5). Accept: unit tests with a captured pytest log.
-- [ ] **planning**: Update `.claude/agents/python-author.md`, `python-fixer.md` and `ci-watcher.md`, and add the `codecov` skill (items 6 to 8). Accept: governance finds no agent that reads a whole CI log or runs the full suite verbosely.
+- [x] **python-author**: Apply the test-output changes in [Reducing tokens spent on tests](#reducing-tokens-spent-on-tests) (items 1 to 3). Accept: a failing test still prints its assertion message, a full passing run prints at most a few lines, and coverage tables list only files below 100%.
+- [x] **python-author**: Add `scripts/coverage_gaps.py` and the `coverage-gaps` skill (item 4). Accept: it prints, for each file below 100%, the uncovered line ranges with the enclosing function name and at most 3 lines of code each. Its own tests keep the 95% gate.
+- [x] **python-author**: Make `scripts/ci_triage.py` strip ANSI colour codes and, for pytest logs, keep only `FAILED`, `ERROR`, `E` and the coverage-gate lines (item 5). Accept: unit tests with a captured pytest log.
+- [x] **planning**: Update `.claude/agents/python-author.md`, `python-fixer.md` and `ci-watcher.md`, and add the `codecov` skill (items 6 to 8). Accept: governance finds no agent that reads a whole CI log or runs the full suite verbosely.
 
 ### Phase 4: Later (not in this PR)
 

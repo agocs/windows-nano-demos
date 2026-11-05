@@ -29,7 +29,7 @@ repos:
       - id: pytest
         name: pytest (convention and unit tests)
         # The convention tests read workflows, Dockerfiles and build scripts, so run whenever any of them change
-        entry: uv run pytest -q --cov
+        entry: uv run pytest -q --cov --cov-report=term-missing:skip-covered
         language: system
         pass_filenames: false
         files: (\.py|\.ya?ml|\.toml|\.json|\.cmd|\.ps1|Dockerfile)$

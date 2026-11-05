@@ -1,5 +1,7 @@
 # Windows nanoserver  container demos for developers
 
+[![codecov](https://codecov.io/gh/zippy1981/windows-nano-demos/graph/badge.svg)](https://codecov.io/gh/zippy1981/windows-nano-demos)
+
 I'm experimenting with windows containers and I'm putting the results here.
 
 ## Containers

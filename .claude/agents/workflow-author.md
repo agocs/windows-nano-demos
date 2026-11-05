@@ -49,7 +49,7 @@ The image's smoke test is `<folder>/smoke-test.ps1 -Image <tag>`, owned by `powe
 - Tag CI images with the commit SHA (`windows-nano-<x>:<ver>-${{ github.sha }}`) so parallel runs don't collide, and remove them in an `if: always()` step.
 - Every build is followed by a smoke test that fails the job on a non-zero exit code.
 - Publishing steps run only on `main` (`if: github.ref == 'refs/heads/main'`) and read `secrets.DOCKERHUB_USERNAME` and `secrets.DOCKERHUB_TOKEN`. Never echo secrets.
-- Pin actions to a major version (`actions/checkout@v4`) and third-party actions to a full commit SHA with a version comment.
+- Pin actions to a major version (`actions/checkout@v7`) and third-party actions to a full commit SHA with a version comment.
 - Markdown lint stays on `ubuntu-latest`. Don't move non-Windows work onto the self-hosted runners.
 
 ## Validate

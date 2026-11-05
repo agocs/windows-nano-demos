@@ -42,7 +42,7 @@ jobs:
     outputs:
       matrix: ${{ steps.detect.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # source-changed compares the published revision label with each folder's history
           fetch-depth: 0

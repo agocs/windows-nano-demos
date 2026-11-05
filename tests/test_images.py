@@ -53,9 +53,12 @@ class TestDockerfile:
         )
 
     def test_no_hardcoded_windows_version_in_from(self, image_dir: Path) -> None:
-        for line in dockerfile_lines(image_dir):
-            if line.upper().startswith("FROM "):
-                assert not re.search(r"ltsc20\d\d", line), f"{image_dir.name}/Dockerfile hardcodes a version: {line!r}"
+        hardcoded = [
+            line
+            for line in dockerfile_lines(image_dir)
+            if line.upper().startswith("FROM ") and re.search(r"ltsc20\d\d", line)
+        ]
+        assert not hardcoded, f"{image_dir.name}/Dockerfile hardcodes a version: {hardcoded}"
 
 
 @pytest.mark.parametrize("image_dir", IMAGES, ids=lambda p: p.name)

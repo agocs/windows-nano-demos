@@ -5,7 +5,7 @@ Windows container images (nanoserver, with servercore where needed), built and t
 ## Environment (Windows host)
 
 - **Python:** always through uv (ADR 0010): `uv run pytest`, `uv run python scripts/<x>.py`. `.claude/settings.json` sets `UV_PYTHON=3.14` and `UV_PYTHON_PREFERENCE=only-managed`. Without them uv picks 3.15, which has no PyYAML wheel, and fails building it. If `uv` isn't on PATH, it's at `%LOCALAPPDATA%\Microsoft\WinGet\Packages\astral-sh.uv_*\uv.exe`. `python3` on this host is only the Microsoft Store stub.
-- **Before committing:** run `uv run pre-commit run --all-files`, which runs ruff format and check, markdownlint and pytest. Never weaken a test to make it pass.
+- **Before committing:** run `uv run pre-commit run --all-files`, which runs ruff format and check, markdownlint and pytest. Never weaken a test to make it pass. Coverage of `scripts/` must stay at 95% or more: a new script or branch comes with its tests. Parametrize tests over images, workflows and badges rather than looping inside one test.
 - **Line endings:** Markdown, YAML, Python, TOML, JSON and Dockerfiles are LF. `.cmd`, `.bat` and `.ps1` are CRLF. In an older CRLF working copy, `sed` and `perl` edits anchored at line ends silently miss, so use the Edit tool or re-check out.
 - **PowerShell quirks:** don't name a variable `$args`. Write `${name}:` when a colon follows a variable in a string. A function returns everything it outputs, so send command output to `Out-Host` in helpers.
 

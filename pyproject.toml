@@ -14,6 +14,7 @@ dependencies = [
 dev = [
     "pre-commit>=4.7.0",
     "pytest>=9.0",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.uv]
@@ -26,3 +27,14 @@ addopts = "-ra"
 
 [tool.ruff]
 line-length = 120
+
+# Coverage of the scripts the tests exercise. `uv run pytest --cov` (CI and pre-commit) fails below fail_under;
+# a plain `uv run pytest -k ...` doesn't measure coverage, so running a few tests still works.
+[tool.coverage.run]
+source = ["scripts"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+skip_covered = false
+exclude_also = ['if __name__ == "__main__":']

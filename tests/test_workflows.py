@@ -37,6 +37,21 @@ RUN_JOBS = [(wf, job_id, job) for wf, job_id, job in JOBS if not is_reusable_cal
 RUN_JOB_IDS = [f"{wf}:{job_id}" for wf, job_id, _ in RUN_JOBS]
 SELF_HOSTED = [(wf, job_id, job) for wf, job_id, job in RUN_JOBS if "self-hosted" in runs_on(job)]
 SELF_HOSTED_IDS = [f"{wf}:{job_id}" for wf, job_id, _ in SELF_HOSTED]
+CALLERS = callers_of_reusable()
+CALLER_IDS = [f"{wf}:{job_id}" for wf, job_id, _ in CALLERS]
+IMAGE_CALLERS = [c for c in CALLERS if c[0] != REFRESH_WORKFLOW]
+IMAGE_CALLER_IDS = [f"{wf}:{job_id}" for wf, job_id, _ in IMAGE_CALLERS]
+# Every `uses:` of a published action, one test each (ADR 0011)
+ACTION_STEPS = [
+    (wf, job_id, step["uses"])
+    for wf, job_id, job in JOBS
+    for step in job.get("steps", [])
+    if step.get("uses") and not step["uses"].startswith("./")
+]
+ACTION_STEP_IDS = [f"{wf}:{job_id}:{uses}" for wf, job_id, uses in ACTION_STEPS]
+PATH_EVENTS = ["push", "pull_request"]
+(_REUSABLE_JOB,) = jobs(workflows()[REUSABLE_WORKFLOW]).values()
+PUBLISH_STEPS = [s for s in _REUSABLE_JOB["steps"] if "docker push" in s.get("run", "")]
 
 
 @pytest.fixture(scope="module")
@@ -95,17 +110,11 @@ def test_self_hosted_jobs_have_a_timeout(wf: str, job_id: str, job: dict) -> Non
     assert "timeout-minutes" in job, f"{wf}:{job_id} has no timeout-minutes, so a hung build holds a runner for 6 hours"
 
 
-@pytest.mark.parametrize(("wf", "job_id", "job"), JOBS, ids=JOB_IDS)
-def test_third_party_actions_are_pinned_to_a_commit(wf: str, job_id: str, job: dict) -> None:
-    for step in job.get("steps", []):
-        uses = step.get("uses")
-        if not uses or uses.startswith("./"):
-            continue
-        owner = uses.split("/", 1)[0]
-        if owner not in TRUSTED_ACTION_OWNERS:
-            assert re.search(r"@[0-9a-f]{40}$", uses), (
-                f"{wf}:{job_id} uses {uses}; pin third-party actions to a commit SHA"
-            )
+@pytest.mark.parametrize(("wf", "job_id", "uses"), ACTION_STEPS, ids=ACTION_STEP_IDS)
+def test_third_party_actions_are_pinned_to_a_commit(wf: str, job_id: str, uses: str) -> None:
+    if uses.split("/", 1)[0] in TRUSTED_ACTION_OWNERS:
+        return
+    assert re.search(r"@[0-9a-f]{40}$", uses), f"{wf}:{job_id} uses {uses}; pin third-party actions to a commit SHA"
 
 
 def test_image_builds_only_run_through_the_reusable_workflow() -> None:
@@ -117,10 +126,9 @@ class TestReusableWorkflow:
     def test_is_callable(self, reusable: dict) -> None:
         assert "workflow_call" in reusable["on"]
 
-    def test_requires_context_and_image_inputs(self, reusable: dict) -> None:
-        inputs = reusable["on"]["workflow_call"]["inputs"]
-        for name in ("context", "image"):
-            assert inputs[name]["required"] is True
+    @pytest.mark.parametrize("name", ["context", "image"])
+    def test_requires_context_and_image_inputs(self, reusable: dict, name: str) -> None:
+        assert reusable["on"]["workflow_call"]["inputs"][name]["required"] is True
 
     def test_has_a_single_job(self, reusable: dict) -> None:
         assert len(jobs(reusable)) == 1
@@ -137,42 +145,45 @@ class TestReusableWorkflow:
         default = reusable["on"]["workflow_call"]["inputs"]["windows-versions"]["default"]
         assert json.loads(default) == WINDOWS_VERSIONS
 
-    def test_image_workflows_build_every_version_unless_excepted(self) -> None:
-        for wf, job_id, job in callers_of_reusable():
-            if wf == REFRESH_WORKFLOW:
-                continue
-            inputs = job.get("with", {})
-            context = inputs.get("context")
-            if context in WINDOWS_VERSION_EXCEPTIONS:
-                assert json.loads(inputs.get("windows-versions", "null")) == WINDOWS_VERSION_EXCEPTIONS[context], (
-                    f"{wf}:{job_id} must pass windows-versions {WINDOWS_VERSION_EXCEPTIONS[context]} as listed in "
-                    "WINDOWS_VERSION_EXCEPTIONS"
-                )
-            else:
-                assert "windows-versions" not in inputs, (
-                    f"{wf}:{job_id} must build every Windows version, or be added to WINDOWS_VERSION_EXCEPTIONS (ADR 0008)"
-                )
-
-    def test_version_exceptions_are_real_subsets(self) -> None:
-        for context, versions in WINDOWS_VERSION_EXCEPTIONS.items():
-            assert versions and set(versions) < set(WINDOWS_VERSIONS), f"{context}: {versions}"
-            assert DEFAULT_WINDOWS_VERSION in versions, f"{context} must still build the default version"
-
-    def test_publishes_only_from_main_through_the_publish_environment(self, reusable_job: dict) -> None:
-        pushes = [s for s in reusable_job["steps"] if "docker push" in s.get("run", "")]
-        assert pushes, "no publish step"
-        for step in pushes:
-            condition = str(step.get("if", ""))
-            assert "inputs.publish" in condition and "github.ref == 'refs/heads/main'" in condition, (
-                f"publish step {step.get('name')!r} must require inputs.publish and main (ADR 0006)"
+    @pytest.mark.parametrize(("wf", "job_id", "job"), IMAGE_CALLERS, ids=IMAGE_CALLER_IDS)
+    def test_image_workflows_build_every_version_unless_excepted(self, wf: str, job_id: str, job: dict) -> None:
+        inputs = job.get("with", {})
+        context = inputs.get("context")
+        if context in WINDOWS_VERSION_EXCEPTIONS:
+            assert json.loads(inputs.get("windows-versions", "null")) == WINDOWS_VERSION_EXCEPTIONS[context], (
+                f"{wf}:{job_id} must pass windows-versions {WINDOWS_VERSION_EXCEPTIONS[context]} as listed in "
+                "WINDOWS_VERSION_EXCEPTIONS"
             )
+        else:
+            assert "windows-versions" not in inputs, (
+                f"{wf}:{job_id} must build every Windows version, or be added to WINDOWS_VERSION_EXCEPTIONS (ADR 0008)"
+            )
+
+    @pytest.mark.parametrize(("context", "versions"), WINDOWS_VERSION_EXCEPTIONS.items(), ids=str)
+    def test_version_exceptions_are_real_subsets(self, context: str, versions: list[str]) -> None:
+        assert versions and set(versions) < set(WINDOWS_VERSIONS), f"{context}: {versions}"
+        assert DEFAULT_WINDOWS_VERSION in versions, f"{context} must still build the default version"
+
+    def test_has_a_publish_step(self, reusable_job: dict) -> None:
+        assert any("docker push" in s.get("run", "") for s in reusable_job["steps"]), "no publish step"
+
+    @pytest.mark.parametrize("step", PUBLISH_STEPS, ids=lambda s: s.get("name", "?"))
+    def test_publish_steps_run_only_on_main_when_asked(self, step: dict) -> None:
+        condition = str(step.get("if", ""))
+        assert "inputs.publish" in condition and "github.ref == 'refs/heads/main'" in condition, (
+            f"publish step {step.get('name')!r} must require inputs.publish and main (ADR 0006)"
+        )
+
+    def test_publish_job_uses_the_publish_environment_only_on_main(self, reusable_job: dict) -> None:
         environment = normalize_expression(str(reusable_job.get("environment", "")))
         assert f"'{PUBLISH_ENVIRONMENT}'" in environment and "github.ref == 'refs/heads/main'" in environment
 
-    def test_labels_published_images_for_refresh_detection(self, reusable_job: dict) -> None:
+    @pytest.mark.parametrize(
+        "label", ["org.opencontainers.image.revision", "org.opencontainers.image.base.digest"], ids=str
+    )
+    def test_labels_published_images_for_refresh_detection(self, reusable_job: dict, label: str) -> None:
         publish = next(s["run"] for s in reusable_job["steps"] if "docker push" in s.get("run", ""))
-        for label in ("org.opencontainers.image.revision", "org.opencontainers.image.base.digest"):
-            assert label in publish, f"the publish step must set the {label} label that image-refresh.yml reads"
+        assert label in publish, f"the publish step must set the {label} label that image-refresh.yml reads"
 
     def test_build_step_adds_no_per_run_labels(self, reusable_job: dict) -> None:
         # Per-run labels would give every run's image a new ID and break layer caching for images built FROM it
@@ -222,26 +233,27 @@ class TestEveryImageHasACallerWorkflow:
         )
 
     def test_caller_passes_the_image_name(self, image_dir) -> None:
-        for wf, job_id, job in self._callers(image_dir):
-            assert job["with"].get("image"), f"{wf}:{job_id} doesn't pass image"
+        missing = [f"{wf}:{job_id}" for wf, job_id, job in self._callers(image_dir) if not job["with"].get("image")]
+        assert not missing, f"{missing} don't pass image"
 
-    def test_caller_paths_include_the_image_and_the_reusable_workflow(self, image_dir) -> None:
+    @pytest.mark.parametrize("event", PATH_EVENTS)
+    def test_caller_paths_include_the_image_and_the_reusable_workflow(self, image_dir, event: str) -> None:
+        missing = []
         for wf, _, _ in self._callers(image_dir):
-            triggers = workflows()[wf]["on"]
-            for event in ("push", "pull_request"):
-                paths = (triggers.get(event) or {}).get("paths", [])
-                for wanted in (
-                    f"{image_context(image_dir)}/**",
-                    f".github/workflows/{REUSABLE_WORKFLOW}",
-                    f".github/workflows/{wf}",
-                ):
-                    assert wanted in paths, f"{wf} {event} paths are missing {wanted}"
+            paths = (workflows()[wf]["on"].get(event) or {}).get("paths", [])
+            wanted = [
+                f"{image_context(image_dir)}/**",
+                f".github/workflows/{REUSABLE_WORKFLOW}",
+                f".github/workflows/{wf}",
+            ]
+            missing += [f"{wf}: {w}" for w in wanted if w not in paths]
+        assert not missing, f"{event} paths are missing {missing}"
 
     def test_has_a_smoke_test(self, image_dir) -> None:
         assert (image_dir / SMOKE_TEST).is_file(), f"{image_context(image_dir)}/{SMOKE_TEST} is missing"
 
 
-@pytest.mark.parametrize(("wf", "job_id", "job"), callers_of_reusable(), ids=lambda c: str(c))
+@pytest.mark.parametrize(("wf", "job_id", "job"), CALLERS, ids=CALLER_IDS)
 def test_callers_point_at_an_image_folder(wf: str, job_id: str, job: dict) -> None:
     context = job.get("with", {}).get("context", "")
     if wf == REFRESH_WORKFLOW:
@@ -254,13 +266,14 @@ def test_callers_point_at_an_image_folder(wf: str, job_id: str, job: dict) -> No
     )
 
 
-@pytest.mark.parametrize(("wf", "job_id", "job"), callers_of_reusable(), ids=lambda c: str(c))
-def test_callers_dont_set_the_windows_version_or_base_through_build_args(wf: str, job_id: str, job: dict) -> None:
-    extra = str(job.get("with", {}).get("build-args", ""))
-    for name in ("WINDOWS_VERSION", "BASE_IMAGE"):
-        assert name not in extra, (
-            f"{wf}:{job_id} sets {name} in build-args; the shared matrix and base-image-overrides own it"
-        )
+@pytest.mark.parametrize("name", ["WINDOWS_VERSION", "BASE_IMAGE"])
+@pytest.mark.parametrize(("wf", "job_id", "job"), CALLERS, ids=CALLER_IDS)
+def test_callers_dont_set_the_windows_version_or_base_through_build_args(
+    wf: str, job_id: str, job: dict, name: str
+) -> None:
+    assert name not in str(job.get("with", {}).get("build-args", "")), (
+        f"{wf}:{job_id} sets {name} in build-args; the shared matrix and base-image-overrides own it"
+    )
 
 
 def test_reusable_workflow_rejects_version_and_base_in_build_args() -> None:
@@ -269,13 +282,11 @@ def test_reusable_workflow_rejects_version_and_base_in_build_args() -> None:
     assert "'WINDOWS_VERSION', 'BASE_IMAGE'" in build and "throw" in build
 
 
-def test_docker_hub_secrets_are_only_used_by_the_publishing_workflows() -> None:
-    allowed = {REUSABLE_WORKFLOW, REFRESH_WORKFLOW}
-    for path in workflow_paths():
-        if path.name not in allowed:
-            assert "DOCKERHUB_" not in path.read_text(encoding="utf-8"), (
-                f"{path.name} must not touch the Docker Hub secrets"
-            )
+@pytest.mark.parametrize(
+    "path", [p for p in workflow_paths() if p.name not in {REUSABLE_WORKFLOW, REFRESH_WORKFLOW}], ids=lambda p: p.name
+)
+def test_docker_hub_secrets_are_only_used_by_the_publishing_workflows(path) -> None:
+    assert "DOCKERHUB_" not in path.read_text(encoding="utf-8"), f"{path.name} must not touch the Docker Hub secrets"
 
 
 class TestRefreshWorkflow:
@@ -292,10 +303,9 @@ class TestRefreshWorkflow:
         assert normalize_expression(str(refresh["with"]["publish"])) == "github.ref == 'refs/heads/main'"
 
 
-@pytest.mark.parametrize(("wf", "job_id", "job"), callers_of_reusable(), ids=lambda c: str(c))
+# image-refresh.yml has its own concurrency group and must never cancel a publish
+@pytest.mark.parametrize(("wf", "job_id", "job"), IMAGE_CALLERS, ids=IMAGE_CALLER_IDS)
 def test_image_workflows_cancel_superseded_pull_request_runs(wf: str, job_id: str, job: dict) -> None:
-    if wf == REFRESH_WORKFLOW:
-        return  # image-refresh.yml has its own concurrency group and must never cancel a publish
     concurrency = workflows()[wf].get("concurrency") or {}
     assert "github.event.pull_request.number" in str(concurrency.get("group", "")), (
         f"{wf} needs a concurrency group per pull request, so a new push cancels the older runs"
@@ -323,9 +333,9 @@ class TestVariantPublishing:
         publish = next(s["run"] for s in job["steps"] if "docker push" in s.get("run", ""))
         assert "inputs.tag-prefix" in publish and "inputs.also-plain-tags" in publish
 
-    def test_refresh_passes_every_variant_input_through(self) -> None:
+    @pytest.mark.parametrize("name", ["build-args", "variant", "tag-prefix", "also-plain-tags"])
+    def test_refresh_passes_every_variant_input_through(self, name: str) -> None:
         refresh = jobs(workflows()[REFRESH_WORKFLOW])["refresh"]
-        for name in ("build-args", "variant", "tag-prefix", "also-plain-tags"):
-            assert normalize_expression(str(refresh["with"].get(name, ""))) == f"matrix.{name}", (
-                f"{REFRESH_WORKFLOW} must pass {name} from the detect matrix"
-            )
+        assert normalize_expression(str(refresh["with"].get(name, ""))) == f"matrix.{name}", (
+            f"{REFRESH_WORKFLOW} must pass {name} from the detect matrix"
+        )

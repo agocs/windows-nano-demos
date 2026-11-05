@@ -115,6 +115,8 @@ The repo has [pre-commit](https://pre-commit.com/) hooks that run before each co
 - markdownlint
 - the pytest suite: the convention tests from ADR 0011 plus unit tests
 
+The pytest hook and the Repo tests workflow run with `--cov`, which fails if the tests cover less than 95% of `scripts/` (`[tool.coverage]` in `pyproject.toml`). CI also adds the coverage table to the run summary. A test that checks every image, workflow or badge is parametrized over them, so each one passes or fails on its own instead of the loop stopping at the first failure.
+
 They use the repo's own uv-managed tools, so you need [uv](https://docs.astral.sh/uv/), and Node.js for `npx`, on your PATH. Install them once per clone:
 
 ```bash

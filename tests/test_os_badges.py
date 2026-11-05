@@ -6,8 +6,9 @@ import json
 from pathlib import Path
 
 import os_badges
+import pytest
 import yaml
-from repo_conventions import WINDOWS_VERSION_EXCEPTIONS, WORKFLOWS_DIR
+from repo_conventions import WINDOWS_VERSION_EXCEPTIONS, WINDOWS_VERSIONS, WORKFLOWS_DIR
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -83,12 +84,17 @@ def test_badges_workflow_triggers_on_every_image_workflow() -> None:
     assert triggers["workflow_run"]["branches"] == ["main"]
 
 
-def test_readme_shows_a_build_badge_for_every_built_version() -> None:
+def built_versions(workflow: str) -> list[str]:
+    """The Windows versions an image workflow builds: every version unless it is an ADR 0008 exception."""
+    caller = yaml.safe_load((WORKFLOWS_DIR / workflow).read_text(encoding="utf-8"))
+    contexts = [job.get("with", {}).get("context") for job in caller["jobs"].values()]
+    return next((WINDOWS_VERSION_EXCEPTIONS[c] for c in contexts if c in WINDOWS_VERSION_EXCEPTIONS), WINDOWS_VERSIONS)
+
+
+BADGES = [(Path(wf).stem, version) for wf in os_badges.image_workflows() for version in built_versions(wf)]
+
+
+@pytest.mark.parametrize(("stem", "version"), BADGES, ids=[f"{s}-{v}" for s, v in BADGES])
+def test_readme_shows_a_build_badge_for_every_built_version(stem: str, version: str) -> None:
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    for workflow in os_badges.image_workflows():
-        stem = Path(workflow).stem
-        caller = yaml.safe_load((WORKFLOWS_DIR / workflow).read_text(encoding="utf-8"))
-        contexts = [job.get("with", {}).get("context") for job in caller["jobs"].values()]
-        versions = next((WINDOWS_VERSION_EXCEPTIONS[c] for c in contexts if c in WINDOWS_VERSION_EXCEPTIONS), None)
-        for version in versions or ["2019", "2022", "2025"]:
-            assert f"badges%2F{stem}-{version}.json" in readme, f"README has no ltsc{version} build badge for {stem}"
+    assert f"badges%2F{stem}-{version}.json" in readme, f"README has no ltsc{version} build badge for {stem}"

@@ -2,3 +2,7 @@
 .claude/worktrees/
 .venv/
 __pycache__/
+
+# pytest-cov data
+.coverage
+.coverage.*

@@ -1,0 +1,24 @@
+# Builds and tests windows-nano-mysql for every Windows version through the shared workflow (ADR 0009)
+name: MySQL container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nano-server-mysql/**'
+      - '.github/workflows/mysql-container.yml'
+      - '.github/workflows/build-windows-image.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nano-server-mysql/**'
+      - '.github/workflows/mysql-container.yml'
+      - '.github/workflows/build-windows-image.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-windows-image.yml
+    with:
+      context: nano-server-mysql
+      image: windows-nano-mysql

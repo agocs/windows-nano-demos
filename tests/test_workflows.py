@@ -208,22 +208,6 @@ class TestEveryImageHasACallerWorkflow:
 @pytest.mark.parametrize(("wf", "job_id", "job"), callers_of_reusable(), ids=lambda c: str(c))
 def test_callers_point_at_an_image_folder(wf: str, job_id: str, job: dict) -> None:
     context = job.get("with", {}).get("context", "")
-<<<<<<< HEAD
-    assert context in {p.name for p in image_dirs()}, f"{wf}:{job_id} context {context!r} isn't a folder with a Dockerfile"
-
-
-@pytest.mark.parametrize(("wf", "job_id", "job"), callers_of_reusable(), ids=lambda c: str(c))
-def test_callers_dont_set_the_windows_version_or_base_through_build_args(wf: str, job_id: str, job: dict) -> None:
-    extra = str(job.get("with", {}).get("build-args", ""))
-    for name in ("WINDOWS_VERSION", "BASE_IMAGE"):
-        assert name not in extra, f"{wf}:{job_id} sets {name} in build-args; the shared matrix and base-image-overrides own it"
-
-
-def test_reusable_workflow_rejects_version_and_base_in_build_args() -> None:
-    (job,) = jobs(workflows()[REUSABLE_WORKFLOW]).values()
-    build = next(s["run"] for s in job["steps"] if "docker build" in s.get("run", ""))
-    assert "'WINDOWS_VERSION', 'BASE_IMAGE'" in build and "throw" in build
-=======
     if wf == REFRESH_WORKFLOW:
         assert normalize_expression(context) == "matrix.context", (
             f"{wf}:{job_id} must take context from the detect matrix"
@@ -233,6 +217,17 @@ def test_reusable_workflow_rejects_version_and_base_in_build_args() -> None:
         f"{wf}:{job_id} context {context!r} isn't a folder with a Dockerfile"
     )
 
+
+@pytest.mark.parametrize(("wf", "job_id", "job"), callers_of_reusable(), ids=lambda c: str(c))
+def test_callers_dont_set_the_windows_version_or_base_through_build_args(wf: str, job_id: str, job: dict) -> None:
+    extra = str(job.get("with", {}).get("build-args", ""))
+    for name in ("WINDOWS_VERSION", "BASE_IMAGE"):
+        assert name not in extra, f"{wf}:{job_id} sets {name} in build-args; the shared matrix and base-image-overrides own it"
+
+def test_reusable_workflow_rejects_version_and_base_in_build_args() -> None:
+    (job,) = jobs(workflows()[REUSABLE_WORKFLOW]).values()
+    build = next(s["run"] for s in job["steps"] if "docker build" in s.get("run", ""))
+    assert "'WINDOWS_VERSION', 'BASE_IMAGE'" in build and "throw" in build
 
 def test_docker_hub_secrets_are_only_used_by_the_publishing_workflows() -> None:
     allowed = {REUSABLE_WORKFLOW, REFRESH_WORKFLOW}
@@ -255,4 +250,3 @@ class TestRefreshWorkflow:
     def test_publishes_only_from_main(self) -> None:
         refresh = jobs(workflows()[REFRESH_WORKFLOW])["refresh"]
         assert normalize_expression(str(refresh["with"]["publish"])) == "github.ref == 'refs/heads/main'"
->>>>>>> 4469824 (Implement the Patch Tuesday image refresh (phases 0-4))

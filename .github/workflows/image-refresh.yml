@@ -1,9 +1,12 @@
 # Patch Tuesday image refresh (plans/patch-tuesday-image-refresh.md, ADR 0004-0007).
-# Twice a day, find every image and Windows version whose Microsoft base image or source changed since it was
-# last published, rebuild and smoke-test exactly those, and publish them from main. A failure opens an issue.
+# On every push to main and twice a day, find every image and Windows version whose Microsoft base image or source
+# changed since it was last published, rebuild and smoke-test exactly those, and publish them. A failure opens an issue.
 name: Image refresh
 
 on:
+  # A merge publishes the images it changed right away: detection reports them as source-changed (ADR 0006)
+  push:
+    branches: [main]
   schedule:
     # Polling instead of guessing the date: GitHub cron ORs day-of-month and day-of-week, so
     # "the Wednesday after the second Tuesday" can't be expressed. A quiet run builds nothing.

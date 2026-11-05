@@ -284,3 +284,10 @@ def test_image_workflows_cancel_superseded_pull_request_runs(wf: str, job_id: st
     assert (
         normalize_expression(str(concurrency.get("cancel-in-progress", ""))) == "github.event_name == 'pull_request'"
     ), f"{wf} must cancel in-progress runs only for pull requests, never for pushes to main"
+
+
+def test_refresh_runs_on_push_to_main_and_on_a_schedule() -> None:
+    # ADR 0006 (amended): merges publish right away, and the schedule picks up Patch Tuesday base images
+    triggers = workflows()[REFRESH_WORKFLOW]["on"]
+    assert (triggers.get("push") or {}).get("branches") == ["main"], f"{REFRESH_WORKFLOW} must run on pushes to main"
+    assert triggers.get("schedule"), f"{REFRESH_WORKFLOW} must keep its schedule for base image updates"

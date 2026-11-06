@@ -4,6 +4,7 @@ Smoke tests a built windows-servercore-far image: Far loads with no missing DLLs
 .EXAMPLE
 ./server-core/server-core-far/smoke-test.ps1 -Image windows-servercore-far:2025
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Image
 )

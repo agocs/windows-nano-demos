@@ -1,4 +1,9 @@
-# Smoke test for the windows-nano-powershell image. Runs inside the container.
+<#
+.SYNOPSIS
+Smoke test that runs inside the windows-nano-powershell image.
+#>
+[CmdletBinding()]
+param()
 # Kept small: CI passes it to pwsh with -EncodedCommand, and cmd.exe limits the command line to 8191 chars.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'

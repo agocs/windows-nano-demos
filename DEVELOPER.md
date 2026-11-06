@@ -107,6 +107,19 @@ Two plans look at filling Nano Server's gaps with open-source builds of the miss
 | Merge conflicts in list-like files (the README image table) | `uv run python scripts/union_merge.py README.md` | `pr-shepherd` |
 | Remove an experiment's containers and images | `./scripts/Remove-DockerArtifacts.ps1 -Prefix <p> -WhatIf` | `safe-docker-cleanup` |
 
+## PowerShell lint
+
+The PowerShell lint workflow runs PSScriptAnalyzer 1.25.0 over every tracked `.ps1`, `.psm1` and `.psd1` file. It uses `PSScriptAnalyzerSettings.psd1` and two custom rules from `tools/psscriptanalyzer/RepoRules.psm1`:
+
+- every script has `[CmdletBinding()]` on its param block, plus an empty `param()` if it takes no parameters
+- every script starts with comment-based help with a `.SYNOPSIS`, before `[CmdletBinding()]`. A `#Requires` line goes after the help, or `Get-Help` doesn't find it.
+
+Warnings fail the check too. Fix a finding, or suppress it in the code with `[Diagnostics.CodeAnalysis.SuppressMessageAttribute(...)]` and a justification. To run it locally without installing the module, use the PowerShell image:
+
+```pwsh
+docker run --rm -v "${PWD}:C:\src" -w C:\src windows-nano-powershell:2025 pwsh -File scripts/Invoke-RepoScriptAnalyzer.ps1
+```
+
 ## Pre-commit hooks
 
 The repo has [pre-commit](https://pre-commit.com/) hooks that run before each commit:

@@ -7,6 +7,7 @@ and restarts it to check the data survives. Removes only the containers and volu
 .EXAMPLE
 ./nano-server/nano-server-mysql/smoke-test.ps1 -Image windows-nano-mysql:2025
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Image
 )
@@ -22,6 +23,11 @@ $appPassword = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 24 | F
 
 # Runs the bundled mysql client in a second, throwaway container. The password goes in the environment, not on the command line.
 function Invoke-Client {
+    # The passwords are random, generated above for this run's throwaway containers, and reach the client only
+    # through MYSQL_PWD. A SecureString would have to be converted straight back to pass it to docker.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'Password', Justification = 'Generated throwaway test password')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams', '', Justification = 'Generated throwaway test password')]
+    [CmdletBinding()]
     param([string]$ServerIp, [string]$User, [string]$Password, [string]$Sql)
     $name = "mysql-smoke-client-$([guid]::NewGuid().ToString('n').Substring(0, 8))"
     $script:names += $name

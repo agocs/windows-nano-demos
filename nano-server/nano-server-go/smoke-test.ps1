@@ -8,6 +8,7 @@ an older Go skip that part and say so rather than downloading a newer toolchain.
 .EXAMPLE
 ./nano-server/nano-server-go/smoke-test.ps1 -Image windows-nano-go:2025
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Image,
     [string]$AlgernonVersion = 'v1.17.12',

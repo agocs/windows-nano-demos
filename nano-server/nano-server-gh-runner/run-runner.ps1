@@ -6,6 +6,7 @@ Gets a short-lived registration token with the gh CLI and starts the container w
 host's docker named pipe mounted. Pipe mounts need process isolation, so the image's
 Windows version must be compatible with the host (ltsc2022 works on Windows 11).
 #>
+[CmdletBinding()]
 param(
     [string]$Repo = 'zippy1981/windows-nano-demos',
     [string]$Name = "$env:COMPUTERNAME-nano",

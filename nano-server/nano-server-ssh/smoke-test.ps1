@@ -4,6 +4,7 @@ Smoke tests a built windows-nano-ssh image: a normal user with password and key 
 .EXAMPLE
 ./nano-server/nano-server-ssh/smoke-test.ps1 -Image windows-nano-ssh:2025
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Image
 )

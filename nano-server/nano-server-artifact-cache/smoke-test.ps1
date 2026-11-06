@@ -43,7 +43,7 @@ function Wait-Healthy {
 
 # Downloads each URL in one client container and copies C:\out back to a host folder.
 # The client trusts the cache CA with curl --cacert and resolves the host to the cache IP.
-function Invoke-Client([string]$Label, [string]$CacheIp, [string[]]$Url) {
+function Invoke-Client([string]$Label, [string]$CacheIp, [string[]]$Url, [string]$Client) {
     $name = "$cache-$Label"
     $clients.Add($name)
     $commands = @("curl.exe -fsS -o C:\\root.crt http://${CacheIp}:8080/root.crt", 'mkdir C:\out')
@@ -51,7 +51,7 @@ function Invoke-Client([string]$Label, [string]$CacheIp, [string[]]$Url) {
         $uri = [uri]$Url[$i]
         $commands += "curl.exe -fsSL --resolve $($uri.Host):443:$CacheIp --cacert C:\\root.crt -D C:\\out\\$i.txt -o C:\\out\\$i.bin $($Url[$i])"
     }
-    docker run --name $name $ClientImage cmd /S /C ($commands -join ' && ') | Out-Host
+    docker run --name $name $Client cmd /S /C ($commands -join ' && ') | Out-Host
     if ($LASTEXITCODE) { throw "client $Label failed: $LASTEXITCODE" }
     $dir = Join-Path $work $Label
     docker cp "${name}:C:\out" $dir | Out-Host
@@ -89,9 +89,9 @@ try {
     $ip = (docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $cache).Trim()
     if (-not $ip) { throw 'the cache container has no IP address' }
 
-    $first = Invoke-Client 'first' $ip @($artifact)
+    $first = Invoke-Client 'first' $ip @($artifact) $ClientImage
     Assert-Status $first 'MISS' 'first artifact download'
-    $second = Invoke-Client 'second' $ip @($artifact)
+    $second = Invoke-Client 'second' $ip @($artifact) $ClientImage
     Assert-Status $second 'HIT' 'second artifact download'
 
     $hash1 = (Get-FileHash (Join-Path $first '0.bin') -Algorithm SHA256).Hash
@@ -99,12 +99,12 @@ try {
     if ($hash1 -ne $hash2) { throw 'cached artifact SHA-256 differs from the first download' }
     'artifact SHA-256 stable across MISS and HIT' | Out-Host
 
-    $pageDir = Invoke-Client 'page' $ip @($page)
+    $pageDir = Invoke-Client 'page' $ip @($page) $ClientImage
     Assert-Status $pageDir 'BYPASS' 'non-artifact page'
 
     docker restart $cache | Out-Null
     Wait-Healthy
-    $third = Invoke-Client 'third' $ip @($artifact)
+    $third = Invoke-Client 'third' $ip @($artifact) $ClientImage
     Assert-Status $third 'HIT' 'artifact download after cache restart'
 
     $logs = docker logs $cache 2>&1 | Out-String

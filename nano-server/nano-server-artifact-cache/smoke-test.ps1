@@ -43,13 +43,14 @@ function Wait-Healthy {
 
 # Downloads each URL in one client container and copies C:\out back to a host folder.
 # The client trusts the cache CA with curl --cacert and resolves the host to the cache IP.
+# Schannel fails with "the revocation status is unknown" unless --ssl-revoke-best-effort: the internal CA has no CRL or OCSP.
 function Invoke-Client([string]$Label, [string]$CacheIp, [string[]]$Url, [string]$Client) {
     $name = "$cache-$Label"
     $clients.Add($name)
     $commands = @("curl.exe -fsS -o C:\\root.crt http://${CacheIp}:8080/root.crt", 'mkdir C:\out')
     for ($i = 0; $i -lt $Url.Count; $i++) {
         $uri = [uri]$Url[$i]
-        $commands += "curl.exe -fsSL --resolve $($uri.Host):443:$CacheIp --cacert C:\\root.crt -D C:\\out\\$i.txt -o C:\\out\\$i.bin $($Url[$i])"
+        $commands += "curl.exe -fsSL --resolve $($uri.Host):443:$CacheIp --cacert C:\\root.crt --ssl-revoke-best-effort -D C:\\out\\$i.txt -o C:\\out\\$i.bin $($Url[$i])"
     }
     docker run --name $name $Client cmd /S /C ($commands -join ' && ') | Out-Host
     if ($LASTEXITCODE) { throw "client $Label failed: $LASTEXITCODE" }
@@ -104,6 +105,8 @@ try {
 
     docker restart $cache | Out-Null
     Wait-Healthy
+    # Windows nat hands the restarted container a new IP address.
+    $ip = (docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $cache).Trim()
     $third = Invoke-Client 'third' $ip @($artifact) $ClientImage
     Assert-Status $third 'HIT' 'artifact download after cache restart'
 

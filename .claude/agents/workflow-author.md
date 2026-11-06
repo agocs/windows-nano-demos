@@ -11,7 +11,7 @@ You write the YAML in `.github/workflows/`. You implement workflows; the overall
 
 ## Image workflows call the shared workflow (ADR 0009)
 
-Image builds never get their own job. `.github/workflows/build-windows-image.yml` owns the runner, fork guard, matrix, memory limit, timeout, smoke test and cleanup. An image's workflow, named for its folder (for example `php-container.yml` for `nano-server-php/`), is only triggers plus a call, as in `.github/workflows/php-container.yml`:
+Image builds never get their own job. `.github/workflows/build-windows-image.yml` owns the runner, fork guard, matrix, memory limit, timeout, smoke test and cleanup. An image's workflow, named for its folder (for example `php-container.yml` for `nano-server/nano-server-php/`), is only triggers plus a call, as in `.github/workflows/php-container.yml`:
 
 ```yaml
 on:

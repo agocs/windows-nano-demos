@@ -30,6 +30,14 @@ on:
         description: Variant name, for example go1.26.10. It goes into the CI image tag so parallel variants don't collide.
         type: string
         default: ''
+      tag-prefix:
+        description: 'For images published in several variants: published tags become <tag-prefix>-<ver>, <tag-prefix>-<ver>-<os-build> and so on (ADR 0005), for example 1.26.10-2025. Empty publishes the plain <ver> tags.'
+        type: string
+        default: ''
+      also-plain-tags:
+        description: With a tag-prefix, also publish the plain <ver> tags. Set it on exactly one variant per image, the one users get from :2025.
+        type: boolean
+        default: false
       publish:
         description: Push the tested image to Docker Hub. Only takes effect on main (ADR 0006).
         type: boolean
@@ -104,6 +112,8 @@ jobs:
             'org.opencontainers.image.created' = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
             'org.opencontainers.image.title' = '${{ inputs.image }}'
           }
+          # Variant images say which variant they are, for example 1.26.10 or 1.27.3-cgo
+          if ('${{ inputs.tag-prefix }}') { $labels['org.opencontainers.image.version'] = '${{ inputs.tag-prefix }}' }
           if ($env:BASE_IMAGE) {
             $name, $digest = $env:BASE_IMAGE -split '@', 2
             $labels['org.opencontainers.image.base.name'] = $name
@@ -117,25 +127,46 @@ jobs:
           $version = '${{ matrix.windows-version }}'
           $osBuild = docker image inspect $labelled --format '{{.OsVersion}}'
           $repository = 'zippy1981/${{ inputs.image }}'
-          # ADR 0005: moving :<ver>, :<ver>-<os-build> and :<ver>-YYYY-MM, plus an immutable :<ver>-<os-build>-<sha7>
-          $tags = @(
+          # ADR 0005: moving :<ver>, :<ver>-<os-build> and :<ver>-YYYY-MM, plus an immutable :<ver>-<os-build>-<sha7>.
+          # A variant prefixes each of them (:1.26.10-2025 ...); the default variant also gets the plain tags.
+          $plain = @(
             $version
             "$version-$osBuild"
             "$version-$((Get-Date).ToUniversalTime().ToString('yyyy-MM'))"
             "$version-$osBuild-$('${{ github.sha }}'.Substring(0, 7))"
           )
+          $prefix = '${{ inputs.tag-prefix }}'
+          $tags = if ($prefix) { $plain | ForEach-Object { "$prefix-$_" } } else { $plain }
+          if ($prefix -and '${{ inputs.also-plain-tags }}' -eq 'true') { $tags = @($tags) + $plain }
           # Runner containers persist between jobs, so the login lives in a throwaway config directory
           $env:DOCKER_CONFIG = Join-Path $env:RUNNER_TEMP "docker-config-$([guid]::NewGuid().ToString('n'))"
           New-Item -ItemType Directory -Path $env:DOCKER_CONFIG | Out-Null
+          # Retries transient registry failures. A tag that still fails doesn't stop the remaining tags: every tag is
+          # attempted, the failures are listed, and the step fails at the end so the leg (and the refresh issue) shows it.
+          function Invoke-WithRetry([string]$What, [scriptblock]$Action, [int]$Attempts = 3) {
+            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+              # Out-Host: the command's output must not become part of this function's return value
+              & $Action | Out-Host
+              if (-not $LASTEXITCODE) { return $true }
+              Write-Host "::warning::$What failed (attempt $attempt of $Attempts, exit $LASTEXITCODE)"
+              if ($attempt -lt $Attempts) { Start-Sleep -Seconds (15 * $attempt) }
+            }
+            return $false
+          }
+          $failed = @()
           try {
-            $env:DOCKERHUB_TOKEN | docker login --username $env:DOCKERHUB_USERNAME --password-stdin
-            if ($LASTEXITCODE) { throw "docker login failed: $LASTEXITCODE" }
+            $loggedIn = Invoke-WithRetry 'docker login' { $env:DOCKERHUB_TOKEN | docker login --username $env:DOCKERHUB_USERNAME --password-stdin }
+            if (-not $loggedIn) { throw 'docker login failed after 3 attempts' }
             foreach ($tag in $tags) {
               docker tag $labelled "${repository}:$tag"
-              docker push "${repository}:$tag"
-              if ($LASTEXITCODE) { throw "docker push ${repository}:$tag failed: $LASTEXITCODE" }
-              "Pushed ${repository}:$tag" | Tee-Object -Append -FilePath $env:GITHUB_STEP_SUMMARY
+              if (Invoke-WithRetry "docker push ${repository}:$tag" { docker push "${repository}:$tag" }) {
+                "Pushed ${repository}:$tag" | Tee-Object -Append -FilePath $env:GITHUB_STEP_SUMMARY
+              } else {
+                $failed += "${repository}:$tag"
+                "**Failed** to push ${repository}:$tag" | Tee-Object -Append -FilePath $env:GITHUB_STEP_SUMMARY
+              }
             }
+            if ($failed) { throw "push failed for $($failed.Count) of $($tags.Count) tags: $($failed -join ', ')" }
           }
           finally {
             docker logout | Out-Null

@@ -2,3 +2,10 @@
 .claude/worktrees/
 .venv/
 __pycache__/
+
+# pytest-cov data and the reports CI uploads to Codecov
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+junit.xml

@@ -1,0 +1,82 @@
+# Per-Windows-version build badges for the README. GitHub's workflow badge is red if any version fails and can't
+# say which, so after every image workflow run on main this writes one shields.io endpoint file per image and
+# version (scripts/os_badges.py) to the `badges` branch, and the README's ltsc columns show them.
+name: OS badges
+
+on:
+  workflow_run:
+    # Every image workflow (the callers of build-windows-image.yml). tests/test_workflows.py keeps this list complete.
+    workflows:
+      - Far Manager container
+      - GitHub runner container
+      - Go container
+      - MySQL container
+      - PHP container
+      - PowerShell container
+      - Rust container
+      - SSH server container
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+# Each run recomputes every image, so when a burst of image runs finishes, the runs GitHub drops while one is
+# pending lose nothing
+concurrency:
+  group: os-badges
+  cancel-in-progress: false
+
+env:
+  UV_PYTHON: '3.14'
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  badges:
+    # Only runs of this repo's main, never a fork's branch that happens to be called main. It reads job results
+    # through the API and never checks out the triggering run's code.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.event != 'pull_request')
+    # Reads the API only, no docker, so a GitHub-hosted runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Check out the badges branch
+        run: |
+          git worktree add --detach out
+          cd out
+          if git fetch --quiet --depth 1 origin badges; then
+            git checkout --quiet -B badges FETCH_HEAD
+          else
+            git switch --quiet --orphan badges
+          fi
+
+      - name: Write the badges
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run python scripts/os_badges.py --out out
+
+      - name: Push
+        working-directory: out
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Badges unchanged"
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --quiet -m "Update OS badges"
+          git push --quiet origin badges

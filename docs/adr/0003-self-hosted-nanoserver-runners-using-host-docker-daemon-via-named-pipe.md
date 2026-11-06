@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-11-04
 - Deciders: Justin Dearing
-- Related: [`nano-server-gh-runner/`](../../nano-server-gh-runner/README.md), [`.github/workflows/gh-runner-container.yml`](../../.github/workflows/gh-runner-container.yml), [0002](0002-build-every-image-for-ltsc2019-ltsc2022-and-ltsc2025.md)
+- Related: [`nano-server-gh-runner/`](../../nano-server/nano-server-gh-runner/README.md), [`.github/workflows/gh-runner-container.yml`](../../.github/workflows/gh-runner-container.yml), [0002](0002-build-every-image-for-ltsc2019-ltsc2022-and-ltsc2025.md)
 
 ## Context
 

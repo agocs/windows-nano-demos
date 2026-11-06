@@ -12,7 +12,7 @@ This folder holds the [Claude Code subagents](https://docs.claude.com/en/docs/cl
 | `cicd-engineer` | Designs the CI/CD system: runner fleet and image, matrices, schedules, publishing, cleanup, secrets. | opus | Read, Glob, Grep, Write, Edit, Bash, PowerShell, WebFetch |
 | `workflow-author` | Writes GitHub Actions YAML to the repo's conventions and checks it with actionlint. | sonnet | Read, Glob, Grep, Write, Edit, Bash |
 | `container-author` | Writes and edits Dockerfiles and `build.cmd` for existing image folders. | sonnet | Read, Glob, Grep, Write, Edit, WebFetch |
-| `windows-demo-scaffolder` | Creates a whole new `nano-server-<stack>/` demo folder and wires it into the root README. | sonnet | Read, Write, Edit, Glob, Grep, Bash, WebFetch |
+| `windows-demo-scaffolder` | Creates a whole new `nano-server/nano-server-<stack>/` (or `server-core/server-core-<stack>/`) demo folder and wires it into the root README. | sonnet | Read, Write, Edit, Glob, Grep, Bash, WebFetch |
 | `powershell-author` | Writes PowerShell 7 scripts and modules with Pester tests, clean under PSScriptAnalyzer. | sonnet | Read, Glob, Grep, Write, Edit, PowerShell |
 | `python-author` | Writes Python tools and the convention tests under `tests/` with uv (Python version from `UV_PYTHON`), PyYAML and pytest. Hands formatting to `python-fixer`. | sonnet | Read, Glob, Grep, Write, Edit, Bash, Agent |
 | `python-fixer` | Runs ruff format and ruff check --fix, fixes what's left by hand without changing behaviour, then re-runs the tests. | haiku | Bash, Read, Edit, Glob, Grep |
@@ -24,10 +24,13 @@ This folder holds the [Claude Code subagents](https://docs.claude.com/en/docs/cl
 | `windows-image-publisher` | Pushes images to Docker Hub, only when explicitly asked. | haiku | PowerShell, Read |
 | `markdown-reviewer` | Read-only review of Markdown against the lint config. Hands fixes to `markdown-fixer`. | haiku | Bash, Read, Glob, Grep, Agent |
 | `markdown-fixer` | Fixes markdownlint errors by editing content. | haiku | Bash, Read, Edit, Glob, Grep |
+| `ci-watcher` | Waits for a run or a PR's checks to finish, then reports the outcome and, for failures, `scripts/ci_triage.py`'s compact output. | haiku | Bash, Read |
 
 ## How models were chosen
 
-- **haiku** for cheap, mechanical, or read-mostly work with a fixed procedure: running lint and fixing what it says, host diagnostics, a guarded `docker push`, and `planning`. Planning is haiku because it fills in a fixed template and hands real work to other agents. If its plans come out thin for a large design, ask `cicd-engineer` to draft the design and have `planning` turn it into a checklist.
+Model choice is the biggest lever on cost. Most tokens in this repo go on waiting for and reading CI, not on writing code, so that work goes to haiku.
+
+- **haiku** for cheap, mechanical, or read-mostly work with a fixed procedure: watching CI (`ci-watcher`), running lint or ruff and fixing what it says, host diagnostics, a guarded `docker push`, and `planning`. Planning is haiku because it fills in a fixed template and hands real work to other agents. If its plans come out thin for a large design, ask `cicd-engineer` to draft the design and have `planning` turn it into a checklist.
 - **sonnet** for authoring and building: writing Dockerfiles, workflows, scripts, ADRs, and running builds and tests, where correctness matters but each task is bounded.
 - **opus** for deep review and design, where missing something is expensive: `governance` (cross-cutting audit), `windows-dockerfile-reviewer` (subtle nanoserver failures), and `cicd-engineer` (security of self-hosted runners and the shape of the whole pipeline).
 

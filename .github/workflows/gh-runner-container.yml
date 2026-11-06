@@ -5,13 +5,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'nano-server-gh-runner/**'
+      - 'nano-server/nano-server-gh-runner/**'
       - '.github/workflows/gh-runner-container.yml'
       - '.github/workflows/build-windows-image.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'nano-server-gh-runner/**'
+      - 'nano-server/nano-server-gh-runner/**'
       - '.github/workflows/gh-runner-container.yml'
       - '.github/workflows/build-windows-image.yml'
   workflow_dispatch:
@@ -25,5 +25,5 @@ jobs:
   build:
     uses: ./.github/workflows/build-windows-image.yml
     with:
-      context: nano-server-gh-runner
+      context: nano-server/nano-server-gh-runner
       image: windows-nano-gh-runner

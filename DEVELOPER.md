@@ -56,9 +56,9 @@ When steps 1 to 5 don't produce a working Nano Server image, set the image's def
 
 | Image | Missing on Nano Server | How we found it | Fix |
 | --- | --- | --- | --- |
-| PHP ([README](nano-server-php/README.md)) | `vcruntime140.dll`, `vcruntime140_1.dll`, `msvcp140.dll` | PHP and its extensions import the Visual C++ runtime. | Server Core doesn't ship it either, so a Server Core stage installs the [VC++ redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) and the image copies the three DLLs. |
+| PHP ([README](nano-server/nano-server-php/README.md)) | `vcruntime140.dll`, `vcruntime140_1.dll`, `msvcp140.dll` | PHP and its extensions import the Visual C++ runtime. | Server Core doesn't ship it either, so a Server Core stage installs the [VC++ redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) and the image copies the three DLLs. |
 | PHP | `where.exe` | The smoke test's `where micro` failed. | `where.exe` and `en-US\where.exe.mui` are copied from the Server Core stage. |
-| SSH ([README](nano-server-ssh/README.md)) | `netapi32.dll`, `whoami.exe` | `sshd.exe`, `sshd-session.exe` and `ssh.exe` exited with `0xC0000135`, and their imports include `netapi32.dll`. | Both are copied from a Server Core stage of the same version. [Win32-OpenSSH](https://github.com/PowerShell/Win32-OpenSSH) then runs, as a LocalSystem service so it can create user tokens. |
+| SSH ([README](nano-server/nano-server-ssh/README.md)) | `netapi32.dll`, `whoami.exe` | `sshd.exe`, `sshd-session.exe` and `ssh.exe` exited with `0xC0000135`, and their imports include `netapi32.dll`. | Both are copied from a Server Core stage of the same version. [Win32-OpenSSH](https://github.com/PowerShell/Win32-OpenSSH) then runs, as a LocalSystem service so it can create user tokens. |
 | MySQL ([draft PR #33](https://github.com/zippy1981/windows-nano-demos/pull/33)) | The same three VC++ runtime DLLs, plus `icacls.exe` | `mysqld` imports the Visual C++ runtime. The entrypoint's `icacls` call failed because Nano Server has no `icacls`. | The same Server Core redistributable stage as PHP. `icacls` turned out not to be needed, because a folder created under `C:` is already writable by ContainerUser. MySQL 8.4 runs as ContainerUser on ltsc2019, ltsc2022 and ltsc2025. |
 | Caddy artifact cache ([PR #31](https://github.com/zippy1981/windows-nano-demos/pull/31)) | `certutil.exe` and `certoc.exe` | Neither exists on Nano Server ltsc2025. | The cache's root CA is imported by writing the certificate to the registry, under `HKLM\SOFTWARE\Microsoft\SystemCertificates\ROOT`. |
 
@@ -66,8 +66,8 @@ When steps 1 to 5 don't produce a working Nano Server image, set the image's def
 
 | Image | What failed on Nano Server | Why we stopped |
 | --- | --- | --- |
-| Far Manager ([README](nano-server-far/README.md)) | `far.exe -?` exits with `0xC0000135`. Far statically imports `WINSPOOL.DRV`, `COMDLG32`, `SHELL32`, `SETUPAPI`, `IMM32`, `VERSION`, `NETAPI32` and `PSAPI`. | After copying those and their dependencies from Server Core, the error became `0xC0000139`. Nano Server's own core DLLs lack exports that the desktop DLLs need, so the copied DLLs can't run on it. The image is Server Core for every version. |
-| SSH on ltsc2025 only ([README](nano-server-ssh/README.md)) | sshd runs, but every local-account logon fails in LSA: [`LsaLogonUser`](https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-lsalogonuser) S4U returns `0xC00000DF` (`STATUS_NO_SUCH_DOMAIN`), and `LogonUser` fails with error 1355. | The computer name and the local SAM look right, and copying the LSA-related DLLs from Server Core didn't help. ltsc2019 and ltsc2022 stay on Nano Server, and 2025 uses Server Core through `base-image-overrides`. The root cause is still unknown. |
+| Far Manager ([README](server-core/server-core-far/README.md)) | `far.exe -?` exits with `0xC0000135`. Far statically imports `WINSPOOL.DRV`, `COMDLG32`, `SHELL32`, `SETUPAPI`, `IMM32`, `VERSION`, `NETAPI32` and `PSAPI`. | After copying those and their dependencies from Server Core, the error became `0xC0000139`. Nano Server's own core DLLs lack exports that the desktop DLLs need, so the copied DLLs can't run on it. The image is Server Core for every version. |
+| SSH on ltsc2025 only ([README](nano-server/nano-server-ssh/README.md)) | sshd runs, but every local-account logon fails in LSA: [`LsaLogonUser`](https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-lsalogonuser) S4U returns `0xC00000DF` (`STATUS_NO_SUCH_DOMAIN`), and `LogonUser` fails with error 1355. | The computer name and the local SAM look right, and copying the LSA-related DLLs from Server Core didn't help. ltsc2019 and ltsc2022 stay on Nano Server, and 2025 uses Server Core through `base-image-overrides`. The root cause is still unknown. |
 
 ### Version-specific findings
 
@@ -96,6 +96,30 @@ Two plans look at filling Nano Server's gaps with open-source builds of the miss
 - **[ReactOS](https://reactos.org/)** ([plan, PR #9](https://github.com/zippy1981/windows-nano-demos/pull/9)): ReactOS releases are x86 only, which Nano Server can't run without WoW64, so the plan uses the x64 nightly builds. Those import `kernel32!__chkstk`, which Microsoft's x64 `kernel32.dll` doesn't export, so they fail with `0xC0000139`. A small shim DLL that forwards kernel32 and provides `__chkstk` made 20 of the 25 tools tried work.
 - **[Wine](https://gitlab.winehq.org/wine/wine)** ([plan, PR #11](https://github.com/zippy1981/windows-nano-demos/pull/11); implementation, [PR #21](https://github.com/zippy1981/windows-nano-demos/pull/21)): Wine builds its programs as PE files, and nine of them work unmodified on every Nano Server version. A build-time import check refuses any module that needs Wine's own core DLLs or a Unix library.
 
+## Helper scripts and skills
+
+[CLAUDE.md](CLAUDE.md) summarises the conventions for Claude Code sessions and agents. These scripts save time, and tokens, for people and agents alike:
+
+| Task | Script | Skill or agent |
+| --- | --- | --- |
+| What's open, what's running, which worktrees are dirty | `uv run python scripts/repo_status.py` | `repo-status` |
+| Why a PR or run failed | `uv run python scripts/ci_triage.py --pr <n>` | `ci-triage`, `ci-watcher` |
+| Merge conflicts in list-like files (the README image table) | `uv run python scripts/union_merge.py README.md` | `pr-shepherd` |
+| Remove an experiment's containers and images | `./scripts/Remove-DockerArtifacts.ps1 -Prefix <p> -WhatIf` | `safe-docker-cleanup` |
+
+## PowerShell lint
+
+The PowerShell lint workflow runs PSScriptAnalyzer 1.25.0 over every tracked `.ps1`, `.psm1` and `.psd1` file. It uses `PSScriptAnalyzerSettings.psd1` and two custom rules from `tools/psscriptanalyzer/RepoRules.psm1`:
+
+- every script has `[CmdletBinding()]` on its param block, plus an empty `param()` if it takes no parameters
+- every script starts with comment-based help with a `.SYNOPSIS`, before `[CmdletBinding()]`. A `#Requires` line goes after the help, or `Get-Help` doesn't find it.
+
+Warnings fail the check too. Fix a finding, or suppress it in the code with `[Diagnostics.CodeAnalysis.SuppressMessageAttribute(...)]` and a justification. To run it locally without installing the module, use the PowerShell image:
+
+```pwsh
+docker run --rm -v "${PWD}:C:\src" -w C:\src windows-nano-powershell:2025 pwsh -File scripts/Invoke-RepoScriptAnalyzer.ps1
+```
+
 ## Pre-commit hooks
 
 The repo has [pre-commit](https://pre-commit.com/) hooks that run before each commit:
@@ -103,6 +127,8 @@ The repo has [pre-commit](https://pre-commit.com/) hooks that run before each co
 - ruff format and lint
 - markdownlint
 - the pytest suite: the convention tests from ADR 0011 plus unit tests
+
+The pytest hook and the Repo tests workflow run with `--cov`, which fails if the tests cover less than 95% of `scripts/` (`[tool.coverage]` in `pyproject.toml`). CI also adds the coverage table to the run summary, and uploads the coverage and test results to [Codecov](https://codecov.io/gh/zippy1981/windows-nano-demos), which comments on pull requests with the coverage of the changed lines (`codecov.yml`). The Codecov checks are informational; the local 95% gate is the one that blocks. To see what isn't covered, run `uv run pytest -q --cov --cov-report=json` and then `uv run python scripts/coverage_gaps.py`. A test that checks every image, workflow or badge is parametrized over them, so each one passes or fails on its own instead of the loop stopping at the first failure.
 
 They use the repo's own uv-managed tools, so you need [uv](https://docs.astral.sh/uv/), and Node.js for `npx`, on your PATH. Install them once per clone:
 
@@ -133,5 +159,5 @@ The hooks are configured in [.pre-commit-config.yaml](.pre-commit-config.yaml). 
   - [README](README.md): the list of images
   - [ADRs](docs/adr/README.md)
   - [Patch Tuesday plan](plans/patch-tuesday-image-refresh.md)
-  - each image's README under `nano-server-*/`
+  - each image's README under `nano-server/` and `server-core/`
   - the [agents](.claude/agents/README.md)

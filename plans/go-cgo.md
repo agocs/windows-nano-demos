@@ -68,7 +68,7 @@ The first sqlcmd attempt failed with `error obtaining VCS status: exit status 12
 
 - [x] **container-author**: Run the toolchain experiments and keep the prototype Dockerfiles in `experiments/go-cgo/`. Accept: the results table above is filled in, and `cc --version` and a cgo hello world are recorded for llvm-mingw on 2019, 2022 and 2025.
 - [x] **windows-container-tester**: Write `nano-server-go/smoke-test-cgo.ps1` and `smoke-test-cgo-sqlcmd.ps1`. Accept: both pass against the llvm-mingw prototype on ltsc2025 (results in the PR description).
-- [x] **adr**: Write ADR 0012 "The Go image has a cgo variant using llvm-mingw, tagged `-cgo-`" (amending 0005 for variant tags) and add it to `docs/adr/README.md`. Accept: markdownlint passes, and the index lists it.
+- [x] **adr**: Write ADR 0013 "The Go image has a cgo variant using llvm-mingw, tagged `-cgo-`" (amending 0005 for variant tags) and add it to `docs/adr/README.md`. Accept: markdownlint passes, and the index lists it.
 
 ### Phase 1: Dockerfile
 
@@ -105,7 +105,7 @@ The first sqlcmd attempt failed with `error obtaining VCS status: exit status 12
 - `workflow-author`, `cicd-engineer`: workflow job, labels, refresh matrix.
 - `python-author`: convention tests.
 - `windows-container-tester`: smoke tests and published image checks.
-- `adr`: ADR 0012.
+- `adr`: ADR 0013.
 
 ## Implementation notes
 
@@ -116,5 +116,5 @@ Phases 1 and 2 are implemented on this branch, and the Phase 3 publishing tasks 
 - **Smoke tests, ltsc2025 on this host.** `smoke-test.ps1` on the plain image passes (hello, a cgo build fails as expected, algernon). On the cgo image it passes (hello, `cgo says 42`, sqlcmd v1.10.0 built with cgo). ltsc2022 and ltsc2019 were not run locally; CI covers them. Moving `CC` from `ENV` to `go env -w` broke the prototype's `%CC%` check in `smoke-test-cgo.ps1`, which is fixed.
 - **Convention tests.** `tests/test_images.py` gets `TestGoCgo`: `ARG CGO=0` exists and comes after the Go install `RUN`. `build-windows-image.yml` still rejects `WINDOWS_VERSION` and `BASE_IMAGE` in `build-args`.
 - **CI.** `go-container.yml` uses explicit `include` entries: the three plain Go lines with `cgo: '0'` and one `1.27.3` entry with `cgo: '1'`, `variant: go1.27.3-cgo` and a 150 minute timeout (90 for the others). The job `name` is set to `build (<go>[-cgo])` so `scripts/ci_speed.py` still parses it. The entries also carry `tag-prefix` and `also-plain-tags` to match the shape on the variant-publishing branch; they are not passed to the shared workflow yet because it has no such inputs on this branch.
-- **Not published.** The shared workflow's publish step tags only by Windows version, so publishing the cgo leg would overwrite the plain image's tags. `image-refresh.yml` and `scripts/refresh_matrix.py` never pass `CGO` or any build argument, so refreshes build and publish only the plain image. The cgo leg is build and test only until the shared workflow gains variant-aware tags (`<go>-cgo-<win>` plus the ADR 0005 suffixes). This is recorded in [ADR 0012](../docs/adr/0012-the-go-image-has-a-cgo-variant-using-llvm-mingw.md) (Proposed), which defers the tag scheme to the amended ADR 0005.
+- **Published since variant publishing (#42) landed.** The cgo leg publishes under its own `1.27.3-cgo-<win>` tags, and `scripts/refresh_matrix.py` expands the matrix, so refreshes rebuild it too. Earlier note, kept for history: the shared workflow's publish step used to tag only by Windows version, so publishing the cgo leg would have overwritten the plain image's tags. `image-refresh.yml` and `scripts/refresh_matrix.py` never pass `CGO` or any build argument, so refreshes build and publish only the plain image. The cgo leg is build and test only until the shared workflow gains variant-aware tags (`<go>-cgo-<win>` plus the ADR 0005 suffixes). This is recorded in [ADR 0012](../docs/adr/0013-the-go-image-has-a-cgo-variant-using-llvm-mingw.md) (Proposed), which defers the tag scheme to the amended ADR 0005.
 - **Left for later.** The custom labels (CI task), the `-cgo-` publish and refresh teaching (Phase 3), the `windows-dockerfile-reviewer` pass, `windows-deps-updater` learning the llvm-mingw pin, and the published-image checks.

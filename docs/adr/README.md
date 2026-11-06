@@ -15,4 +15,5 @@ These records explain why this repo is built the way it is. Each one covers a si
 | 0009 | [All image builds use one reusable workflow](0009-all-image-builds-use-one-reusable-workflow.md) | Accepted | 2026-11-04 |
 | 0010 | [Python tooling uses uv, with the Python version set by the `UV_PYTHON` environment variable](0010-python-tooling-uses-uv-with-the-python-version-from-uv-python.md) | Accepted | 2026-11-04 |
 | 0011 | [Repository conventions are enforced by tests in CI](0011-repository-conventions-are-enforced-by-tests-in-ci.md) | Accepted | 2026-11-04 |
-| 0012 | [The Go image has a cgo variant using llvm-mingw](0012-the-go-image-has-a-cgo-variant-using-llvm-mingw.md) | Proposed | 2026-11-05 |
+| 0012 | [Images live in a directory for their base image](0012-images-live-in-a-directory-for-their-base-image.md) | Accepted | 2026-11-05 |
+| 0013 | [The Go image has a cgo variant using llvm-mingw](0013-the-go-image-has-a-cgo-variant-using-llvm-mingw.md) | Proposed | 2026-11-05 |

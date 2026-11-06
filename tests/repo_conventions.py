@@ -23,10 +23,8 @@ WINDOWS_VERSIONS = ["2019", "2022", "2025"]
 DEFAULT_WINDOWS_VERSION = "2025"
 # ADR 0008 exceptions: images whose workflow overrides the shared matrix with `windows-versions`, and exactly the
 # versions they build. Every entry needs a reason in the image README.
-WINDOWS_VERSION_EXCEPTIONS = {
-    # The smoke test's restart check ("the row did not survive a restart") fails intermittently on ltsc2019
-    "nano-server-mysql": ["2022", "2025"],
-}
+# None today: MySQL builds ltsc2019 again since its smoke test waits for the server properly (issue #44).
+WINDOWS_VERSION_EXCEPTIONS: dict[str, list[str]] = {}
 BASE_IMAGE_ARG = re.compile(
     r"^ARG BASE_IMAGE=mcr\.microsoft\.com/windows/(nanoserver|servercore):ltsc\$\{WINDOWS_VERSION\}-amd64$"
 )
@@ -38,6 +36,10 @@ REFRESH_WORKFLOW = "image-refresh.yml"
 # The GitHub environment that holds DOCKERHUB_USERNAME and DOCKERHUB_TOKEN
 PUBLISH_ENVIRONMENT = "Docker Hub zippy1981"
 SMOKE_TEST = "smoke-test.ps1"
+# ADR 0012: each image lives in the directory for the base of its final stage, as <dir>/<dir>-<name>, and is
+# published as the matching Docker Hub name, windows-<prefix>-<name>
+IMAGE_PARENTS = {"nano-server": "nanoserver", "server-core": "servercore"}
+HUB_PREFIXES = {"nano-server": "windows-nano-", "server-core": "windows-servercore-"}
 # ADR 0011: actions owned by these accounts may use version tags; everything else is pinned to a commit
 TRUSTED_ACTION_OWNERS = {"actions"}
 
@@ -97,10 +99,24 @@ def normalize_expression(text: str) -> str:
 
 
 def image_dirs() -> list[Path]:
-    """Top-level folders with a Dockerfile. Each one is an image."""
+    """Folders with a Dockerfile under the base-image directories (ADR 0012). Each one is an image."""
     return sorted(
-        p for p in REPO_ROOT.iterdir() if p.is_dir() and not p.name.startswith(".") and (p / "Dockerfile").is_file()
+        p
+        for parent in IMAGE_PARENTS
+        if (REPO_ROOT / parent).is_dir()
+        for p in (REPO_ROOT / parent).iterdir()
+        if p.is_dir() and (p / "Dockerfile").is_file()
     )
+
+
+def image_context(image_dir: Path) -> str:
+    """The image's docker build context as the workflows name it, for example nano-server/nano-server-php."""
+    return image_dir.relative_to(REPO_ROOT).as_posix()
+
+
+def top_level_image_dirs() -> list[Path]:
+    """Folders with a Dockerfile directly in the repo root. ADR 0012 says there are none."""
+    return sorted(p for p in REPO_ROOT.iterdir() if p.is_dir() and (p / "Dockerfile").is_file())
 
 
 def callers_of_reusable() -> list[tuple[str, str, dict[str, Any]]]:

@@ -2,9 +2,10 @@
 .SYNOPSIS
 Downloads a zip, checks its SHA-256, unpacks it, and checks that the executables in it really are executables.
 .DESCRIPTION
-Runs in the Dockerfile's Server Core download stage. It unpacks with Expand-Archive rather than tar.exe, because
-bsdtar silently extracted nano.exe from its zip as zero bytes (plans/console-editors.md). Each -Executable must
-start with the "MZ" header after extraction, so an editor that "is installed" but can't start fails the build.
+Runs in the Dockerfile's Server Core download stage. It unpacks with 7-Zip (7za.exe), because the nano zip uses
+Deflate64: Windows PowerShell's Expand-Archive can't decompress it, and tar.exe silently extracts it as zero bytes
+(plans/console-editors.md). Each -Executable must start with the "MZ" header after extraction, so an editor that
+"is installed" but can't start fails the build.
 .PARAMETER Url
 The zip to download.
 .PARAMETER Sha256
@@ -13,6 +14,8 @@ The zip's expected SHA-256, as pinned in the Dockerfile.
 The folder to unpack into. It is created.
 .PARAMETER Executable
 Paths, relative to -Destination, of the executables to check.
+.PARAMETER SevenZip
+The 7za.exe to unpack with. The Dockerfile installs it to C:\7z\x64\7za.exe.
 .EXAMPLE
 ./Get-VerifiedZip.ps1 -Url https://example.com/tool.zip -Sha256 0123... -Destination C:\editors\tool -Executable tool.exe
 #>
@@ -21,7 +24,8 @@ param(
     [Parameter(Mandatory)][string]$Url,
     [Parameter(Mandatory)][string]$Sha256,
     [Parameter(Mandatory)][string]$Destination,
-    [string[]]$Executable = @()
+    [string[]]$Executable = @(),
+    [string]$SevenZip = 'C:\7z\x64\7za.exe'
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -32,7 +36,8 @@ try {
     if ($LASTEXITCODE) { throw "downloading $Url failed: $LASTEXITCODE" }
     $actual = (Get-FileHash -Path $zip -Algorithm SHA256).Hash
     if ($actual -ne $Sha256) { throw "$Url has SHA-256 $actual, expected $Sha256" }
-    Expand-Archive -Path $zip -DestinationPath $Destination
+    & $SevenZip x $zip "-o$Destination" -y | Out-Null
+    if ($LASTEXITCODE) { throw "7-Zip couldn't unpack $Url (exit $LASTEXITCODE)" }
 }
 finally {
     Remove-Item -Path $zip -ErrorAction SilentlyContinue

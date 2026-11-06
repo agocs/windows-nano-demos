@@ -29,8 +29,9 @@ function Invoke-Image {
 }
 
 $checks = [ordered]@{
-    'edit --version' = '2\.0\.0'
-    'nano --version' = 'GNU nano, version 7\.2'
+    # The v2.0.0 release's edit.exe reports 1.2.1; the SHA-256 pinned in the Dockerfile identifies the build
+    'edit --version' = 'edit version \d+\.\d+\.\d+'
+    'nano --version' = 'GNU nano for Windows 64 bits, v7\.2-22\.1'
     'hx --version'   = 'helix 25\.07\.1'
 }
 foreach ($check in $checks.GetEnumerator()) {
@@ -42,5 +43,7 @@ foreach ($check in $checks.GetEnumerator()) {
 # hx --health reads the runtime folder and lists every language. It must work with no language servers installed.
 $health = Invoke-Image hx --health
 if ($health -notmatch '(?m)^\s*rust\b') { throw "hx --health didn't list the rust language: is HELIX_RUNTIME set?" }
-if ($health -match 'Runtime directory does not exist') { throw 'hx --health says the runtime directory is missing' }
+# The per-user runtime folder under AppData is optional and missing; the image's own one, from HELIX_RUNTIME, must be found
+if ($health -notmatch 'Runtime directories: .*C:\\Program Files\\helix\\runtime') { throw "hx --health doesn't use HELIX_RUNTIME" }
+if ($health -match 'Runtime directory does not exist: C:\\Program Files\\helix') { throw 'hx --health says the image runtime is missing' }
 Write-Host 'ok: hx --health lists the languages from its runtime'

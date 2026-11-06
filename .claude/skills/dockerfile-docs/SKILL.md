@@ -45,3 +45,13 @@ ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64
 ## Who writes it
 
 `container-author`, `windows-demo-scaffolder` and `windows-deps-updater` write the Dockerfile and a first draft of these comments. They then hand the file to `markdown-reviewer`, which checks the wording and this format. It starts `markdown-fixer` to apply the changes, then runs `uv run pytest -q tests/test_dockerfile_docs.py`.
+
+## On Docker Hub
+
+The documentation is published with the image. `scripts/Publish-DockerHubDocs.ps1` turns the header's description into the Docker Hub short description, which allows at most 100 characters. It turns the image's `README.md` into the overview, with relative links rewritten to GitHub URLs. The shared workflow:
+
+- runs the script with `-WhatIf` on every build, pull requests included, so a description that is too long or a missing README fails early
+- runs it for real after a push to `main`
+- sets the `org.opencontainers.image.description` and `documentation` labels on the image
+
+To preview an overview locally, run `./scripts/Publish-DockerHubDocs.ps1 -Context <folder> -Repository zippy1981/<image> -WhatIf -PreviewPath overview.md`.

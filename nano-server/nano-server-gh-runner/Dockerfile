@@ -1,4 +1,4 @@
-# windows-nano-gh-runner: Self-hosted GitHub Actions runner with pwsh, MinGit and the docker CLI, which drives the host's docker daemon.
+# windows-nano-gh-runner: Self-hosted GitHub Actions runner with pwsh, MinGit and a docker CLI for the host's daemon.
 #
 # It has the docker CLI but no daemon. Run it with the host's docker pipe mounted, which needs process isolation:
 #   docker run --isolation=process -v \\.\pipe\docker_engine:\\.\pipe\docker_engine ...

@@ -79,3 +79,56 @@ class TestBuildArguments:
             f"{image_context(image_dir)}/Dockerfile: the comment above ARG {name} must show how to set it, "
             f"for example '# Set with --build-arg {name}=<example>.'"
         )
+
+
+# --- Documentation on Docker Hub: every published image gets a short description and an overview ---
+
+DOCKER_HUB_SHORT_MAX = 100  # Docker Hub's limit for a repository's short description
+DOCS_SCRIPT = "scripts/Publish-DockerHubDocs.ps1"
+
+
+@pytest.mark.parametrize("image_dir", IMAGES, ids=image_context)
+class TestDockerHubDocumentation:
+    def test_description_fits_docker_hubs_short_description(self, image_dir: Path) -> None:
+        description = re.sub(r"^# [\w.-]+: ", "", raw_lines(image_dir)[0])
+        assert len(description) <= DOCKER_HUB_SHORT_MAX, (
+            f"{image_context(image_dir)}/Dockerfile's description is {len(description)} characters; it becomes the "
+            f"Docker Hub short description, which allows {DOCKER_HUB_SHORT_MAX}"
+        )
+
+    def test_has_a_readme_for_the_docker_hub_overview(self, image_dir: Path) -> None:
+        readme = image_dir / "README.md"
+        assert readme.is_file() and readme.read_text(encoding="utf-8").startswith("# "), (
+            f"{image_context(image_dir)}/README.md must exist and start with a heading: it becomes the Docker Hub overview"
+        )
+
+
+def _steps() -> list[dict]:
+    from repo_conventions import REUSABLE_WORKFLOW, jobs, workflows
+
+    (job,) = jobs(workflows()[REUSABLE_WORKFLOW]).values()
+    return job["steps"]
+
+
+def test_every_build_checks_the_docker_hub_documentation_without_credentials() -> None:
+    checks = [s for s in _steps() if DOCS_SCRIPT in s.get("run", "") and "-WhatIf" in s.get("run", "")]
+    assert checks, f"the shared workflow must run {DOCS_SCRIPT} -WhatIf on every build"
+    assert all("if" not in s and "DOCKERHUB_TOKEN" not in str(s.get("env", {})) for s in checks), (
+        "the documentation check must run on every build, pull requests included, without Docker Hub credentials"
+    )
+
+
+def test_publishing_updates_the_docker_hub_documentation() -> None:
+    publish = next(s["run"] for s in _steps() if "docker push" in s.get("run", ""))
+    calls = [line for line in publish.splitlines() if DOCS_SCRIPT in line]
+    assert calls and all("-WhatIf" not in line for line in calls), (
+        f"the publish step must run {DOCS_SCRIPT} after pushing, so every published image has its documentation"
+    )
+
+
+@pytest.mark.parametrize(
+    "label", ["org.opencontainers.image.description", "org.opencontainers.image.documentation"], ids=str
+)
+def test_published_images_carry_documentation_labels(label: str) -> None:
+    publish = next(s["run"] for s in _steps() if "docker push" in s.get("run", ""))
+    assert label in publish, f"the publish step must set the {label} label"

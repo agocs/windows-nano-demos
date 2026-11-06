@@ -1,4 +1,4 @@
-# windows-nano-powershell: PowerShell 7 with MinGit, micro, Pester, PSScriptAnalyzer, platyPS, PSReadLine and PSResourceGet on Nano Server.
+# windows-nano-powershell: PowerShell 7 with MinGit, micro, Pester, PSScriptAnalyzer and platyPS on Nano Server.
 #
 # Build from this folder (build.cmd does the same, and also tags zippy1981/windows-nano-powershell):
 #   docker build --memory 4g --build-arg WINDOWS_VERSION=2022 -t windows-nano-powershell:2022 .

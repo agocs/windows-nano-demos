@@ -1,4 +1,4 @@
-# Builds and tests windows-nano-artifact-cache for ltsc2025 only (ADR 0013) through the shared workflow (ADR 0009)
+# Builds and tests windows-nano-artifact-cache for ltsc2025 only (ADR 0014) through the shared workflow (ADR 0009)
 name: Artifact cache container
 
 on:

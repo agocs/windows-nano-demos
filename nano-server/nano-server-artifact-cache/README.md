@@ -1,10 +1,10 @@
 # Artifact cache (Caddy) for nanoserver ltsc2025
 
-A caching HTTPS proxy for build artifacts (issue #24, ADR 0013). It runs beside the GitHub Actions runners on the CI host, so image builds download Go, Rust, MinGit and other pinned artifacts once instead of on every build.
+A caching HTTPS proxy for build artifacts (issue #24, ADR 0014). It runs beside the GitHub Actions runners on the CI host, so image builds download Go, Rust, MinGit and other pinned artifacts once instead of on every build.
 
 This is a fresh implementation for issue #24. It deliberately does not reuse PR #31.
 
-This image is only built for nanoserver ltsc2025, because the cache only runs on the runner host, which runs ltsc2025 containers. That is an exception to ADR 0008, recorded in ADR 0013 and in `WINDOWS_VERSION_EXCEPTIONS`.
+This image is only built for nanoserver ltsc2025, because the cache only runs on the runner host, which runs ltsc2025 containers. That is an exception to ADR 0008, recorded in ADR 0014 and in `WINDOWS_VERSION_EXCEPTIONS`.
 
 ## How it works
 

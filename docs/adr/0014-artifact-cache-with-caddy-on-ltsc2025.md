@@ -1,4 +1,4 @@
-# 0013. Artifact cache with Caddy on ltsc2025
+# 0014. Artifact cache with Caddy on ltsc2025
 
 - Status: Proposed
 - Date: 2026-11-06

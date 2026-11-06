@@ -1,4 +1,4 @@
-# windows-nano-artifact-cache: Caddy HTTPS caching proxy for build artifacts, ltsc2025 only (issue #24, ADR 0013).
+# windows-nano-artifact-cache: Caddy HTTPS caching proxy for build artifacts, ltsc2025 only (issue #24, ADR 0014).
 #
 # It TLS-intercepts allowlisted download hosts with its own CA and caches artifact files on disk,
 # so repeated Windows image builds download Go, Rust, MinGit and similar pinned files once.

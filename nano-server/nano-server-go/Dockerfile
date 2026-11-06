@@ -16,14 +16,13 @@ FROM ${BASE_IMAGE}
 ARG GO_VERSION=1.27.3
 
 # Pinned tool versions and install locations.
-# CGO_ENABLED=0 because there is no C compiler on nanoserver.
+# CGO_ENABLED is set below, after the optional C toolchain. nanoserver has no C compiler, so the default is off.
 # GOTOOLCHAIN=local: always use this image's Go, and never download a newer one that a go.mod asks for.
 ENV \
     GO_VERSION=${GO_VERSION} \
     GOTOOLCHAIN=local \
     GOROOT="C:\\Program Files\\go" \
     GOPATH="C:\\users\\containeruser\\go" \
-    CGO_ENABLED=0 \
     MINGIT_VERSION=2.56.0 \
     MINGIT_RELEASE=2.56.0.windows.4 \
     MINGIT_BUILD=2.56.0.4 \
@@ -59,6 +58,37 @@ RUN mkdir "%MICROEDITOR_PATH%" && \
 RUN reg query HKCU\Environment 2> NUL || reg add HKCU\Environment /v PATH
 RUN mkdir "%GOPATH%\bin" && \
     setx PATH "%GOROOT%\bin;%GOPATH%\bin;%MINGIT_DIR%\cmd;%MICROEDITOR_PATH%"
+
+# Optional cgo support (plans/go-cgo.md). These come after the Go, MinGit and micro layers so the cgo-off and cgo-on builds
+# share them. CGO=0 (the default) changes nothing in the filesystem. CGO=1 installs llvm-mingw (clang, ucrt, x86_64), which is
+# a plain zip that nanoserver's tar can extract on ltsc2019, ltsc2022 and ltsc2025.
+# CGO: 1 adds the C toolchain and sets CGO_ENABLED=1; 0 builds the plain image. Set with --build-arg CGO=1.
+ARG CGO=0
+# The C toolchain for CGO=1. Only llvm-mingw is supported; anything else fails the build. Set with --build-arg CC_TOOLCHAIN=llvm-mingw.
+ARG CC_TOOLCHAIN=llvm-mingw
+# The llvm-mingw release (a date) to install when CGO=1, from github.com/mstorsjo/llvm-mingw/releases.
+# Set with --build-arg LLVM_MINGW_VERSION=20261104.
+ARG LLVM_MINGW_VERSION=20261104
+
+RUN if "%CGO%"=="1" if not "%CC_TOOLCHAIN%"=="llvm-mingw" (echo CC_TOOLCHAIN=%CC_TOOLCHAIN% is not supported, only llvm-mingw is && exit /b 1)
+
+# The zip carries toolchains for x86_64, i686, aarch64 and armv7 (plus arm64ec wrappers); only x86_64 is usable here, so the rest
+# is deleted in the same RUN to keep the layer small. Debugger and IDE tools (lldb, clangd, clang-tidy, python) are not needed to build.
+RUN if "%CGO%"=="1" ( \
+    curl -fLO https://github.com/mstorsjo/llvm-mingw/releases/download/%LLVM_MINGW_VERSION%/llvm-mingw-%LLVM_MINGW_VERSION%-ucrt-x86_64.zip && \
+    tar -xf llvm-mingw-%LLVM_MINGW_VERSION%-ucrt-x86_64.zip -C "%ProgramFiles%" && \
+    del llvm-mingw-%LLVM_MINGW_VERSION%-ucrt-x86_64.zip && \
+    ren "%ProgramFiles%\llvm-mingw-%LLVM_MINGW_VERSION%-ucrt-x86_64" llvm-mingw && \
+    cd /d "%ProgramFiles%\llvm-mingw" && \
+    (for %a in (aarch64 armv7 i686 arm64ec) do (if exist %a-w64-mingw32 rmdir /s /q %a-w64-mingw32) & del /q /f bin\%a-w64-* 2>NUL & ver >NUL) && \
+    (for /d %v in (lib\clang\*) do del /q /f %v\lib\windows\*-aarch64.* %v\lib\windows\*-arm.* %v\lib\windows\*-i386.* 2>NUL & ver >NUL) && \
+    rmdir /s /q python busybox && \
+    (del /q /f bin\lldb* bin\liblldb.dll bin\libpython* bin\clangd.exe bin\clang-tidy.exe 2>NUL & ver >NUL) && \
+    setx PATH "%ProgramFiles%\llvm-mingw\bin;%GOROOT%\bin;%GOPATH%\bin;%MINGIT_DIR%\cmd;%MICROEDITOR_PATH%" && \
+    go env -w CC=x86_64-w64-mingw32-clang CXX=x86_64-w64-mingw32-clang++ \
+    )
+
+ENV CGO_ENABLED=${CGO}
 
 # The container has two users, ContainerAdministrator and ContainerUser.
 # They don't show up in the Net User command, but they have profile directories with registry hives.

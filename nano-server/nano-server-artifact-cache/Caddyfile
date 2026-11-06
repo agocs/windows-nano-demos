@@ -1,4 +1,4 @@
-# Artifact caching proxy (issue #24, ADR 0013).
+# Artifact caching proxy (issue #24, ADR 0014).
 #
 # One HTTPS site per allowlisted download host. Each site terminates TLS with a
 # certificate from Caddy's internal CA, proxies to the real host, and caches

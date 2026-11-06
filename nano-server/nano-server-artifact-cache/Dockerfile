@@ -43,7 +43,7 @@ RUN New-Item -ItemType Directory -Force C:\build, C:\out | Out-Null; \
 FROM ${BASE_IMAGE}
 
 COPY --from=build ["C:/out/caddy.exe", "C:/Program Files/Caddy/caddy.exe"]
-COPY Caddyfile "C:/Program Files/Caddy/Caddyfile"
+COPY ["Caddyfile", "C:/Program Files/Caddy/Caddyfile"]
 
 USER ContainerAdministrator
 RUN mkdir C:\cache && mkdir C:\caddy-data

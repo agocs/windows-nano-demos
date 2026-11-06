@@ -10,7 +10,7 @@
 - Nanoserver has `curl.exe` and `tar.exe` (bsdtar) but no installer support and no WoW64, so only x64-native tools in zip form can be installed. The tar in ltsc2022 reports `LZMA codec is unsupported` for 7z files. The tar in ltsc2025 does read a 7z.
 - Conventions: ADR [0008](../docs/adr/0008-images-take-windows-version-defaulting-to-2025-built-as-a-matrix.md) (Windows version argument, 2025 default), [0009](../docs/adr/0009-all-image-builds-use-one-reusable-workflow.md) (one shared workflow, `<image>/smoke-test.ps1 -Image <tag>`), [0011](../docs/adr/0011-repository-conventions-are-enforced-by-tests-in-ci.md) (convention tests), [0005](../docs/adr/0005-tagging-scheme-for-windows-images.md) (tags).
 - PR #28's lesson: labels added in the build step change the image ID on every run and break layer caching for images built `FROM` it. `build-windows-image.yml` adds labels only in the publish step, by building `FROM <image>` with `--label`.
-- Experiments ran on this repo's Windows 11 host (Hyper-V isolation, `docker build --memory 4g`). The prototype Dockerfiles and the runner script are in `experiments/go-cgo/` and are not wired into CI. They layer the toolchain on a built `windows-nano-go` image (Go 1.27.3).
+- Experiments ran on this repo's Windows 11 host (Hyper-V isolation, `docker build --memory 4g`). The prototype Dockerfiles and the runner script were in `experiments/go-cgo/`, never wired into CI, and were removed once the llvm-mingw variant landed in `nano-server/nano-server-go` (they are in this branch's history). They layer the toolchain on a built `windows-nano-go` image (Go 1.27.3).
 
 ## Experiment results
 
@@ -34,7 +34,7 @@ Notes on each result:
 
 ## Smoke test results
 
-Run against the llvm-mingw prototype (`experiments/go-cgo/Dockerfile.llvm-mingw`):
+Run against the llvm-mingw prototype (the since-removed `experiments/go-cgo/Dockerfile.llvm-mingw`):
 
 | Script | 2025 | 2022 | 2019 |
 | --- | --- | --- | --- |
@@ -66,7 +66,7 @@ The first sqlcmd attempt failed with `error obtaining VCS status: exit status 12
 
 ### Phase 0: Prerequisites
 
-- [x] **container-author**: Run the toolchain experiments and keep the prototype Dockerfiles in `experiments/go-cgo/`. Accept: the results table above is filled in, and `cc --version` and a cgo hello world are recorded for llvm-mingw on 2019, 2022 and 2025.
+- [x] **container-author**: Run the toolchain experiments with prototype Dockerfiles (removed after the variant landed). Accept: the results table above is filled in, and `cc --version` and a cgo hello world are recorded for llvm-mingw on 2019, 2022 and 2025.
 - [x] **windows-container-tester**: Write `nano-server-go/smoke-test-cgo.ps1` and `smoke-test-cgo-sqlcmd.ps1`. Accept: both pass against the llvm-mingw prototype on ltsc2025 (results in the PR description).
 - [x] **adr**: Write ADR 0013 "The Go image has a cgo variant using llvm-mingw, tagged `-cgo-`" (amending 0005 for variant tags) and add it to `docs/adr/README.md`. Accept: markdownlint passes, and the index lists it.
 

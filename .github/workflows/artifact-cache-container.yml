@@ -1,0 +1,30 @@
+# Builds and tests windows-nano-artifact-cache for ltsc2025 only (ADR 0014) through the shared workflow (ADR 0009)
+name: Artifact cache container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nano-server/nano-server-artifact-cache/**'
+      - '.github/workflows/artifact-cache-container.yml'
+      - '.github/workflows/build-windows-image.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nano-server/nano-server-artifact-cache/**'
+      - '.github/workflows/artifact-cache-container.yml'
+      - '.github/workflows/build-windows-image.yml'
+  workflow_dispatch:
+
+# A new push to a pull request cancels that pull request's older runs. Pushes to main always run to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-windows-image.yml
+    with:
+      context: nano-server/nano-server-artifact-cache
+      image: windows-nano-artifact-cache
+      windows-versions: '["2025"]'

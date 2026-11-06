@@ -1,0 +1,179 @@
+# Artifact caching proxy (issue #24, ADR 0014).
+#
+# One HTTPS site per allowlisted download host. Each site terminates TLS with a
+# certificate from Caddy's internal CA, proxies to the real host, and caches
+# unauthenticated GETs of artifact files. Clients must trust the CA root from
+# http://<cache>:8080/root.crt and resolve these host names to the cache.
+
+{
+	storage file_system C:/caddy-data
+	skip_install_trust
+	auto_https disable_redirects
+
+	pki {
+		ca local {
+			name "windows-nano-demos artifact cache"
+		}
+	}
+
+	order cache before rewrite
+	cache {
+		cache_name ArtifactCache
+		mode bypass
+		ttl 720h
+		stale 168h
+		timeout {
+			backend 30m
+			cache 5s
+		}
+		key {
+			hash
+		}
+		simplefs {
+			configuration {
+				path C:/cache
+				directory_size 500GB
+			}
+		}
+	}
+}
+
+(artifacts) {
+	tls internal
+	log {
+		output stdout
+		format json
+	}
+
+	@cacheable {
+		method GET
+		not header Authorization *
+		path_regexp artifact (?i)\.(zip|7z|tar|tgz|gz|xz|bz2|msi|exe|nupkg|whl|deb|rpm)$
+	}
+
+	handle @cacheable {
+		cache
+		reverse_proxy https://{args[0]} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
+	handle {
+		header X-Artifact-Cache BYPASS
+		reverse_proxy https://{args[0]} {
+			header_up Host {upstream_hostport}
+		}
+	}
+}
+
+# GitHub release downloads redirect to blob hosts whose paths have no file
+# extension and whose query string is a short-lived signature. Cache every
+# unauthenticated GET there, without the query string in the key.
+(blobs) {
+	tls internal
+	log {
+		output stdout
+		format json
+	}
+
+	@cacheable {
+		method GET
+		not header Authorization *
+	}
+
+	handle @cacheable {
+		cache {
+			key {
+				disable_query
+				hash
+			}
+		}
+		reverse_proxy https://{args[0]} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
+	handle {
+		header X-Artifact-Cache BYPASS
+		reverse_proxy https://{args[0]} {
+			header_up Host {upstream_hostport}
+		}
+	}
+}
+
+github.com {
+	import artifacts github.com
+}
+
+codeload.github.com {
+	import artifacts codeload.github.com
+}
+
+release-assets.githubusercontent.com {
+	import blobs release-assets.githubusercontent.com
+}
+
+objects.githubusercontent.com {
+	import blobs objects.githubusercontent.com
+}
+
+go.dev {
+	import artifacts go.dev
+}
+
+dl.google.com {
+	import artifacts dl.google.com
+}
+
+nodejs.org {
+	import artifacts nodejs.org
+}
+
+static.rust-lang.org {
+	import artifacts static.rust-lang.org
+}
+
+windows.php.net {
+	import artifacts windows.php.net
+}
+
+cdn.mysql.com {
+	import artifacts cdn.mysql.com
+}
+
+download.docker.com {
+	import artifacts download.docker.com
+}
+
+www.7-zip.org {
+	import artifacts www.7-zip.org
+}
+
+aka.ms {
+	import artifacts aka.ms
+}
+
+download.visualstudio.microsoft.com {
+	import artifacts download.visualstudio.microsoft.com
+}
+
+http://:8080 {
+	log {
+		output stdout
+		format json
+	}
+
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	handle /root.crt {
+		root * C:/caddy-data/pki/authorities/local
+		header Content-Type application/x-x509-ca-cert
+		file_server
+	}
+
+	handle {
+		respond "not found" 404
+	}
+}

@@ -16,3 +16,4 @@ These records explain why this repo is built the way it is. Each one covers a si
 | 0010 | [Python tooling uses uv, with the Python version set by the `UV_PYTHON` environment variable](0010-python-tooling-uses-uv-with-the-python-version-from-uv-python.md) | Accepted | 2026-11-04 |
 | 0011 | [Repository conventions are enforced by tests in CI](0011-repository-conventions-are-enforced-by-tests-in-ci.md) | Accepted | 2026-11-04 |
 | 0012 | [Images live in a directory for their base image](0012-images-live-in-a-directory-for-their-base-image.md) | Accepted | 2026-11-05 |
+| 0013 | [Artifact cache with Caddy on ltsc2025](0013-artifact-cache-with-caddy-on-ltsc2025.md) | Proposed | 2026-11-06 |

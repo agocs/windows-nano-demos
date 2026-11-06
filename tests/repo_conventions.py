@@ -24,7 +24,10 @@ DEFAULT_WINDOWS_VERSION = "2025"
 # ADR 0008 exceptions: images whose workflow overrides the shared matrix with `windows-versions`, and exactly the
 # versions they build. Every entry needs a reason in the image README.
 # None today: MySQL builds ltsc2019 again since its smoke test waits for the server properly (issue #44).
-WINDOWS_VERSION_EXCEPTIONS: dict[str, list[str]] = {}
+WINDOWS_VERSION_EXCEPTIONS: dict[str, list[str]] = {
+    # ADR 0013: the artifact cache only runs on the ltsc2025 runner host
+    "nano-server/nano-server-artifact-cache": ["2025"],
+}
 BASE_IMAGE_ARG = re.compile(
     r"^ARG BASE_IMAGE=mcr\.microsoft\.com/windows/(nanoserver|servercore):ltsc\$\{WINDOWS_VERSION\}-amd64$"
 )

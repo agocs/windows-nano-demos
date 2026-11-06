@@ -82,3 +82,24 @@ class TestBuildScript:
         assert re.search(r'--build-arg "?BASE_IMAGE=%BASE_IMAGE%"?', self._script(image_dir), re.IGNORECASE), (
             f"{image_dir.name}/build.cmd must pass BASE_IMAGE through when it's set"
         )
+
+
+GO_IMAGE = next((p for p in IMAGES if p.name == "nano-server-go"), None)
+
+
+@pytest.mark.skipif(GO_IMAGE is None, reason="nano-server-go is not in this repo")
+class TestGoCgo:
+    """plans/go-cgo.md: cgo is opt-in, and the toolchain layers come after the Go install so the cgo-off build shares them."""
+
+    def _lines(self) -> list[str]:
+        assert GO_IMAGE is not None
+        return dockerfile_lines(GO_IMAGE)
+
+    def test_cgo_argument_defaults_to_off(self) -> None:
+        assert "ARG CGO=0" in self._lines(), "nano-server-go/Dockerfile must declare ARG CGO=0 (cgo is opt-in)"
+
+    def test_cgo_is_declared_after_the_go_install(self) -> None:
+        lines = self._lines()
+        cgo = next(i for i, line in enumerate(lines) if line.startswith("ARG CGO="))
+        go_install = max(i for i, line in enumerate(lines) if line.startswith("RUN") and "go%GO_VERSION%" in line)
+        assert cgo > go_install, "ARG CGO must come after the Go install, or toggling it rebuilds the Go layers"

@@ -48,6 +48,21 @@ RUN echo package main> main.go && echo import "fmt">> main.go && echo func main(
     if ($LASTEXITCODE -or $out -notmatch 'hello from go') { throw "hello world failed ($LASTEXITCODE): $out" }
     Write-Host $out
 
+    $cgoEnabled = (docker run --rm $Image "go env CGO_ENABLED").Trim()
+    if ($LASTEXITCODE) { throw "go env CGO_ENABLED failed: $LASTEXITCODE" }
+    if ($cgoEnabled -eq '1') {
+        # The cgo variant (plans/go-cgo.md): prove cgo with a C function, then a large module graph. Both throw on failure.
+        & "$PSScriptRoot/smoke-test-cgo.ps1" -Image $Image
+        & "$PSScriptRoot/smoke-test-cgo-sqlcmd.ps1" -Image $Image
+        return
+    }
+
+    # The default image has no C compiler, so a cgo build must fail cleanly. The compiler is missing, not a crash or a hang.
+    docker run --rm $Image 'echo package main> c.go && echo import "C">> c.go && echo func main() {}>> c.go && go mod init cgocheck && go build -o c.exe .' 2>&1 | Out-Null
+    $cgoExit = $LASTEXITCODE
+    if (-not $cgoExit) { throw "a cgo build succeeded in $Image, which has CGO_ENABLED=0 and no C compiler" }
+    Write-Host "cgo is off as expected (build exit code $cgoExit)"
+
     if ([version]$goVersion -lt $AlgernonMinimumGo) {
         Write-Host "SKIP algernon ${AlgernonVersion}: it needs Go $AlgernonMinimumGo and this image has Go $goVersion with GOTOOLCHAIN=local"
         return

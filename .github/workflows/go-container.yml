@@ -24,22 +24,28 @@ concurrency:
 
 jobs:
   build:
+    # Keeps the job name "build (1.27.3)" or "build (1.27.3-cgo)": include-only matrices would otherwise list every key
+    # (scripts/ci_speed.py reads this name)
+    name: build (${{ matrix.go-version }}${{ matrix.cgo == '1' && '-cgo' || '' }})
     strategy:
       fail-fast: false
       matrix:
-        # The latest patch of the three newest Go release lines. windows-deps-updater bumps these.
-        # Each is published as windows-nano-go:<go>-<win> (ADR 0005). The newest also owns the plain :<win> tags.
+        # The latest patch of the three newest Go release lines without cgo, plus a cgo variant of the newest
+        # (plans/go-cgo.md, ADR 0013). windows-deps-updater bumps these. Each is published as
+        # windows-nano-go:<prefix>-<win> (ADR 0005); the newest plain build also owns the plain :<win> tags.
         include:
-          - {go-version: '1.27.3', variant: 'go1.27.3', tag-prefix: '1.27.3', also-plain-tags: true}
-          - {go-version: '1.26.10', variant: 'go1.26.10', tag-prefix: '1.26.10', also-plain-tags: false}
-          - {go-version: '1.25.14', variant: 'go1.25.14', tag-prefix: '1.25.14', also-plain-tags: false}
+          - {go-version: '1.27.3', cgo: '0', variant: 'go1.27.3', tag-prefix: '1.27.3', also-plain-tags: true, timeout-minutes: 90}
+          - {go-version: '1.26.10', cgo: '0', variant: 'go1.26.10', tag-prefix: '1.26.10', also-plain-tags: false, timeout-minutes: 90}
+          - {go-version: '1.25.14', cgo: '0', variant: 'go1.25.14', tag-prefix: '1.25.14', also-plain-tags: false, timeout-minutes: 90}
+          # Extracting llvm-mingw takes 10 to 15 minutes under Hyper-V, and the cgo smoke tests build sqlcmd on top
+          - {go-version: '1.27.3', cgo: '1', variant: 'go1.27.3-cgo', tag-prefix: '1.27.3-cgo', also-plain-tags: false, timeout-minutes: 150}
     uses: ./.github/workflows/build-windows-image.yml
     with:
       context: nano-server/nano-server-go
       image: windows-nano-go
-      build-args: '{"GO_VERSION": "${{ matrix.go-version }}"}'
+      build-args: '{"GO_VERSION": "${{ matrix.go-version }}", "CGO": "${{ matrix.cgo }}"}'
       variant: ${{ matrix.variant }}
       tag-prefix: ${{ matrix.tag-prefix }}
       also-plain-tags: ${{ matrix.also-plain-tags }}
       # The algernon build in smoke-test.ps1 (issue #18) adds a few minutes per version
-      timeout-minutes: 90
+      timeout-minutes: ${{ matrix.timeout-minutes }}

@@ -425,7 +425,9 @@ class TestVariants:
         go = [s for s in rm.discover_images() if s.image == "windows-nano-go"]
         assert len(go) >= 3
         assert sum(s.also_plain_tags for s in go) == 1
-        assert all(s.tag_prefix and s.tag_prefix in s.build_args for s in go)
+        # The prefix starts with the Go version it builds; the -cgo variant also builds with CGO=1 (ADR 0013)
+        assert all(s.tag_prefix and s.tag_prefix.split("-")[0] in s.build_args for s in go)
+        assert all(('"CGO": "1"' in s.build_args) == s.tag_prefix.endswith("-cgo") for s in go)
 
     def test_duplicate_prefixes_are_rejected(self) -> None:
         with pytest.raises(ValueError, match="tag-prefix"):

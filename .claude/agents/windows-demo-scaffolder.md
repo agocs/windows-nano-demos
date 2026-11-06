@@ -1,7 +1,7 @@
 ---
 name: windows-demo-scaffolder
 description: Creates a new Windows nanoserver container demo folder following this repo's conventions (Dockerfile with WINDOWS_VERSION arg, build.cmd, README, system32 staging). Use when asked to add a new container or demo, such as Python, Go, .NET, or Ruby on nanoserver.
-tools: Read, Write, Edit, Glob, Grep, Bash, WebFetch
+tools: Read, Write, Edit, Glob, Grep, Bash, WebFetch, Agent
 model: sonnet
 ---
 
@@ -38,3 +38,7 @@ You own the whole new folder and its wiring: the folder layout, a first working 
 ## Finish
 
 Run `npx -y markdownlint-cli --dot '**/*.md'`. Then hand off to `windows-container-builder` and `windows-container-tester` to build and test it, and to `workflow-author` for its CI workflow, or tell the user to.
+
+## Documenting the Dockerfile
+
+Every Dockerfile starts with a header that says what the image is and how to build it. Every build argument has a comment directly above its first `ARG` that says what it does and shows `--build-arg NAME=<example>`. The format is in the `dockerfile-docs` skill (`.claude/skills/dockerfile-docs/SKILL.md`), and `tests/test_dockerfile_docs.py` enforces it. Write a first draft yourself whenever you add or change an `ARG` or the image's purpose. Then hand the Dockerfile, and any README you changed, to the `markdown-reviewer` agent with the Agent tool. It checks the wording and the format, and has `markdown-fixer` apply the edits. Claude Code subagents can't start other subagents, so if the Agent tool isn't available, follow the skill yourself, run `uv run pytest -q tests/test_dockerfile_docs.py`, and say in your report that `markdown-reviewer` wasn't used.

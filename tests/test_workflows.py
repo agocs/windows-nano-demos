@@ -50,6 +50,8 @@ ACTION_STEPS = [
 ]
 ACTION_STEP_IDS = [f"{wf}:{job_id}:{uses}" for wf, job_id, uses in ACTION_STEPS]
 PATH_EVENTS = ["push", "pull_request"]
+# Reads the Docker Hub secrets only to report the token scope; it changes nothing on Docker Hub
+TOKEN_CHECK_WORKFLOW = "dockerhub-token-check.yml"
 (_REUSABLE_JOB,) = jobs(workflows()[REUSABLE_WORKFLOW]).values()
 PUBLISH_STEPS = [s for s in _REUSABLE_JOB["steps"] if "docker push" in s.get("run", "")]
 
@@ -283,7 +285,9 @@ def test_reusable_workflow_rejects_version_and_base_in_build_args() -> None:
 
 
 @pytest.mark.parametrize(
-    "path", [p for p in workflow_paths() if p.name not in {REUSABLE_WORKFLOW, REFRESH_WORKFLOW}], ids=lambda p: p.name
+    "path",
+    [p for p in workflow_paths() if p.name not in {REUSABLE_WORKFLOW, REFRESH_WORKFLOW, TOKEN_CHECK_WORKFLOW}],
+    ids=lambda p: p.name,
 )
 def test_docker_hub_secrets_are_only_used_by_the_publishing_workflows(path) -> None:
     assert "DOCKERHUB_" not in path.read_text(encoding="utf-8"), f"{path.name} must not touch the Docker Hub secrets"
@@ -370,4 +374,14 @@ def test_the_codecov_token_goes_only_to_the_codecov_action(wf: str, job_id: str,
     )
     assert "CODECOV_TOKEN" not in json.dumps(step.get("env", {})) + str(step.get("run", "")), (
         f"{wf}:{job_id} must pass CODECOV_TOKEN only as the action's token input"
+    )
+
+
+def test_the_token_check_only_runs_by_hand_in_the_publish_environment() -> None:
+    wf = workflows()[TOKEN_CHECK_WORKFLOW]
+    assert set(wf["on"]) == {"workflow_dispatch"}, f"{TOKEN_CHECK_WORKFLOW} must only run when dispatched by hand"
+    (job,) = jobs(wf).values()
+    assert job.get("environment") == PUBLISH_ENVIRONMENT
+    assert "docker push" not in json.dumps(job) and "DELETE" not in json.dumps(job), (
+        f"{TOKEN_CHECK_WORKFLOW} must not change anything on Docker Hub"
     )

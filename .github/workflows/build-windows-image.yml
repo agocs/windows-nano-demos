@@ -74,6 +74,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Every published image has its Docker Hub description and overview (dockerfile-docs skill). This builds both
+      # without credentials on every run, so missing or oversized documentation fails before anything is published.
+      - name: Check Docker Hub documentation
+        run: ./scripts/Publish-DockerHubDocs.ps1 -Context '${{ inputs.context }}' -Repository 'zippy1981/${{ inputs.image }}' -WhatIf
+
       - name: Build (ltsc${{ matrix.windows-version }})
         working-directory: ${{ inputs.context }}
         run: |
@@ -111,6 +116,10 @@ jobs:
             'org.opencontainers.image.source' = '${{ github.server_url }}/${{ github.repository }}'
             'org.opencontainers.image.created' = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
             'org.opencontainers.image.title' = '${{ inputs.image }}'
+            # The Dockerfile header's description (dockerfile-docs skill), and where the full documentation lives
+            'org.opencontainers.image.description' = (Get-Content -Path '${{ inputs.context }}/Dockerfile' -TotalCount 1) -replace '^# [\w.-]+: ', ''
+            'org.opencontainers.image.documentation' = '${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/${{ inputs.context }}/README.md'
+            'org.opencontainers.image.url' = 'https://hub.docker.com/r/zippy1981/${{ inputs.image }}'
           }
           # Variant images say which variant they are, for example 1.26.10 or 1.27.3-cgo
           if ('${{ inputs.tag-prefix }}') { $labels['org.opencontainers.image.version'] = '${{ inputs.tag-prefix }}' }
@@ -167,6 +176,9 @@ jobs:
               }
             }
             if ($failed) { throw "push failed for $($failed.Count) of $($tags.Count) tags: $($failed -join ', ')" }
+            # The repository's short description and overview, from the Dockerfile header and README.md at this commit
+            ./scripts/Publish-DockerHubDocs.ps1 -Context '${{ inputs.context }}' -Repository $repository -Revision '${{ github.sha }}' |
+              Tee-Object -Append -FilePath $env:GITHUB_STEP_SUMMARY
           }
           finally {
             docker logout | Out-Null

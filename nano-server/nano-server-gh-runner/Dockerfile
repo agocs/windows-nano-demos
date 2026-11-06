@@ -1,9 +1,18 @@
-ARG WINDOWS_VERSION=2025
-ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64
-# GitHub Actions self-hosted runner on Windows nano server.
+# windows-nano-gh-runner: Self-hosted GitHub Actions runner with pwsh, MinGit and a docker CLI for the host's daemon.
+#
 # It has the docker CLI but no daemon. Run it with the host's docker pipe mounted, which needs process isolation:
 #   docker run --isolation=process -v \\.\pipe\docker_engine:\\.\pipe\docker_engine ...
 # See run-runner.ps1.
+#
+# Build from this folder (build.cmd does the same, and also tags zippy1981/windows-nano-gh-runner):
+#   docker build --memory 4g --build-arg WINDOWS_VERSION=2022 -t windows-nano-gh-runner:2022 .
+# Each build argument is described where it is declared below.
+
+# Windows Server LTSC version to build for: 2019, 2022 or 2025 (the default). Set with --build-arg WINDOWS_VERSION=2022.
+ARG WINDOWS_VERSION=2025
+# The image the final stage is built on. Defaults to Nano Server for WINDOWS_VERSION; CI pins it to a digest.
+# Set with --build-arg BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc2022-amd64.
+ARG BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc${WINDOWS_VERSION}-amd64
 FROM ${BASE_IMAGE}
 
 ENV \

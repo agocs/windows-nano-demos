@@ -1,0 +1,50 @@
+# Reports what the DOCKERHUB_TOKEN in the "Docker Hub zippy1981" environment is allowed to do, without changing
+# anything on Docker Hub. It asks Docker Hub's registry token service for pull, push and delete on one repository; the
+# service grants only the actions the token's scope allows, and the workflow prints that list (never the token).
+# Editing a repository's description (scripts/Publish-DockerHubDocs.ps1) needs the Read, Write, Delete scope, which is
+# the scope that grants delete. Run it by hand after creating or rotating the token.
+name: Docker Hub token check
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Docker Hub repository to check against
+        default: zippy1981/windows-nano-php
+
+permissions:
+  contents: read
+
+jobs:
+  scope:
+    # API calls only, no docker, so a GitHub-hosted runner. The environment releases the secrets only to main.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: Docker Hub zippy1981
+    steps:
+      - name: Check the token's scope
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          REPOSITORY: ${{ inputs.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then echo "::error::the secrets aren't set"; exit 1; fi
+          # A short-lived registry token for the actions this credential may perform; the JWT payload lists them
+          jwt=$(curl -fsS -u "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" \
+            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${REPOSITORY}:pull,push,delete" | jq -r .token)
+          payload=$(printf '%s' "$jwt" | cut -d. -f2 | tr '_-' '/+')
+          while [ $(( ${#payload} % 4 )) -ne 0 ]; do payload="$payload="; done
+          granted=$(printf '%s' "$payload" | base64 -d | jq -r --arg r "$REPOSITORY" '[.access[] | select(.name == $r) | .actions[]] | sort | join(",")')
+          echo "Granted on $REPOSITORY: ${granted:-nothing}"
+          {
+            echo "## Docker Hub token check"
+            echo
+            echo "Granted on \`$REPOSITORY\`: **${granted:-nothing}**"
+            echo
+            case ",$granted," in
+              *,delete,*) echo "The token has the Read, Write, Delete scope: it can delete tags and edit repository descriptions." ;;
+              *,push,*) echo "The token has Read & Write but not Delete: it can push, but can't delete tags or edit descriptions." ;;
+              *) echo "The token can't push to this repository." ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"

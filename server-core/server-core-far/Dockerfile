@@ -1,9 +1,17 @@
+# windows-servercore-far: Far Manager 3 (x64) on Server Core. Run it with docker run -it.
+#
+# Build from this folder (build.cmd does the same, and also tags zippy1981/windows-servercore-far):
+#   docker build --memory 4g --build-arg WINDOWS_VERSION=2022 -t windows-servercore-far:2022 .
+# Each build argument is described where it is declared below.
+
+# Windows Server LTSC version to build for: 2019, 2022 or 2025 (the default). Set with --build-arg WINDOWS_VERSION=2022.
 ARG WINDOWS_VERSION=2025
 # Far Manager can NOT run on nanoserver, so this image is based on servercore.
 # Far.exe statically imports desktop Win32 DLLs that nanoserver doesn't ship (WINSPOOL.DRV, COMDLG32,
 # SHELL32, SETUPAPI, IMM32, ...). On nanoserver ltsc2022 it exits with 0xC0000135 (STATUS_DLL_NOT_FOUND)
 # before printing anything. Copying those DLLs over from servercore just changes the error to
 # 0xC0000139 (STATUS_ENTRYPOINT_NOT_FOUND), because the OS DLLs depend on each other across SKUs.
+# Set with --build-arg BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2022-amd64.
 ARG BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc${WINDOWS_VERSION}-amd64
 FROM ${BASE_IMAGE}
 

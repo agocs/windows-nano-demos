@@ -62,8 +62,12 @@ RUN mkdir "%GOPATH%\bin" && \
 # Optional cgo support (plans/go-cgo.md). These come after the Go, MinGit and micro layers so the cgo-off and cgo-on builds
 # share them. CGO=0 (the default) changes nothing in the filesystem. CGO=1 installs llvm-mingw (clang, ucrt, x86_64), which is
 # a plain zip that nanoserver's tar can extract on ltsc2019, ltsc2022 and ltsc2025.
+# CGO: 1 adds the C toolchain and sets CGO_ENABLED=1; 0 builds the plain image. Set with --build-arg CGO=1.
 ARG CGO=0
+# The C toolchain for CGO=1. Only llvm-mingw is supported; anything else fails the build. Set with --build-arg CC_TOOLCHAIN=llvm-mingw.
 ARG CC_TOOLCHAIN=llvm-mingw
+# The llvm-mingw release (a date) to install when CGO=1, from github.com/mstorsjo/llvm-mingw/releases.
+# Set with --build-arg LLVM_MINGW_VERSION=20261104.
 ARG LLVM_MINGW_VERSION=20261104
 
 RUN if "%CGO%"=="1" if not "%CC_TOOLCHAIN%"=="llvm-mingw" (echo CC_TOOLCHAIN=%CC_TOOLCHAIN% is not supported, only llvm-mingw is && exit /b 1)

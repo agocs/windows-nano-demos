@@ -44,6 +44,20 @@ C:\cache\
 - **Restart.** Simplefs keeps its index in memory and reloads it from `.simplefs-index` at start-up. An entry past its fresh time is dropped and its payload deleted. Any lz4 payload that no index entry points to is also deleted. Don't put files into `C:\cache` by hand: they are either ignored or purged.
 - **Size cap and memory.** `directory_size 500GB` is enforced by evicting the oldest entries before a write. Souin buffers the whole upstream body in memory, then simplefs lz4-compresses it in memory before writing. A MISS therefore holds several copies of the artifact in RAM at once, and the client gets no bytes until the upstream download has finished. That is why a MISS is slower than a direct download. Container memory must allow for the largest artifact several times over.
 
+## Listing the cache
+
+[Get-ArtifactCacheEntry.ps1](Get-ArtifactCacheEntry.ps1) lists what the cache holds without talking to Souin, so it also works on a stopped cache or a copied folder:
+
+```pwsh
+./nano-server/nano-server-artifact-cache/Get-ArtifactCacheEntry.ps1 -FromLog | Format-Table Hash, Url, Bytes, State
+```
+
+It reads the payload files and the `.simplefs-index` protobuf files directly, and writes one object per payload with `Hash`, `IndexHash`, `Url`, `Bytes`, `StoredAt`, `FreshUntil`, `StaleUntil`, `ETag`, `VariedHeaders` and `State` (`Fresh`, `Stale`, `Expired`, or `Orphan` for a payload no index points to). It never writes to the cache folder.
+
+Because the Caddyfile hashes its keys, the URL is stored nowhere, so the script works it out by hashing candidate URLs and matching the hashes against the file names. Candidates come from `-Url`, from the running cache's access log with `-FromLog`, or, when neither supplies any, from download URLs in this repo's Dockerfiles on a best-effort basis. Entries no candidate matches are still listed, by hash, with a null `Url`.
+
+The parser only understands the storage format of the cache-handler and simplefs versions pinned in the Dockerfile, and the script records the versions it was validated against. A test in `tests/` fails when either pin changes, so a version bump forces a re-check against fresh fixtures. The Pester tests in `Get-ArtifactCacheEntry.Tests.ps1` run against the fixture cache under `fixtures/`.
+
 ## Using the cache from a Dockerfile
 
 Plain `curl.exe` in a `RUN` step can use the cache, with no change to the download line. Three things are needed, all found by building on this host:

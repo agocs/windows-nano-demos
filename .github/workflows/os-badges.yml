@@ -7,6 +7,7 @@ on:
   workflow_run:
     # Every image workflow (the callers of build-windows-image.yml). tests/test_workflows.py keeps this list complete.
     workflows:
+      - Editors container
       - Far Manager container
       - GitHub runner container
       - Go container
